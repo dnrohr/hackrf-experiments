@@ -1,0 +1,6 @@
+.tools/
+.state/
+captures/
+*.iq
+*.cs8
+*.cu8
