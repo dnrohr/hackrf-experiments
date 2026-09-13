@@ -1,0 +1,6 @@
+RFNOTEBOOK_RADIO {
+    global:
+        Java_dev_rfnotebook_radio_hackrf_NativeHackrf_*;
+    local:
+        *;
+};

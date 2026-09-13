@@ -1,0 +1,33 @@
+name: Android CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+      - name: Install SDK and NDK
+        shell: pwsh
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
+      - name: Verify receive-only surface
+        shell: pwsh
+        run: .\scripts\Test-ReceiveOnly.ps1
+      - name: Build, test, and lint
+        shell: pwsh
+        working-directory: android
+        run: .\gradlew.bat lint test assembleDebug
+      - name: Verify packaged native exports
+        shell: pwsh
+        run: .\scripts\Test-NativeExports.ps1
+      - name: Validate planning
+        shell: pwsh
+        run: .\scripts\Test-Planning.ps1

@@ -31,6 +31,19 @@ Validate roadmap structure and requirement ownership with:
 .\scripts\Test-Planning.ps1
 ```
 
+The M0 Android spike lives under `android/`. Its CI-safe validation is:
+
+```powershell
+.\scripts\Test-ReceiveOnly.ps1
+Push-Location .\android
+.\gradlew.bat lint test assembleDebug
+Pop-Location
+.\scripts\Test-NativeExports.ps1
+```
+
+Physical-device runs are tracked in `docs/evidence/M0/benchmark-report.md` and
+must not be replaced with emulator results.
+
 ## First connection
 
 1. Attach an antenna suitable for the frequency you want to receive.

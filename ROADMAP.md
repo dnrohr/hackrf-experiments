@@ -39,7 +39,7 @@ M0 Technical spikes
 
 | Milestone | Status | Outcome | Primary requirements | Brief |
 | --- | --- | --- | --- | --- |
-| M0 | Ready | Retire Android USB, native build, throughput, service, and map feasibility risks | Readiness gates and open decisions | [Technical spikes](docs/milestones/M0-technical-spikes.md) |
+| M0 | Needs evidence | Software spike builds; Android USB, throughput, screen-off, detach, and offline-map gates await named hardware | Readiness gates and open decisions | [Technical spikes](docs/milestones/M0-technical-spikes.md) |
 | M1 | Blocked by M0 | Reliable receive-only radio and GPS-tagged survey foundation | USB, equipment, band, location, acquisition, performance | [Radio and survey foundation](docs/milestones/M1-radio-survey-foundation.md) |
 | M2 | Blocked by M1 | Convert spectrum observations into reviewable signal fingerprints | Detection and fingerprinting | [Detection and fingerprinting](docs/milestones/M2-detection-fingerprinting.md) |
 | M3 | Blocked by M2 | Uncertainty-aware geographic exploration of selected fingerprints | Mapping | [Geographic mapping](docs/milestones/M3-geographic-mapping.md) |

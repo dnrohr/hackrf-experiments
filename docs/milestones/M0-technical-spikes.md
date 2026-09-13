@@ -1,6 +1,6 @@
 # M0 — Technical spikes
 
-- Status: Ready
+- Status: Needs evidence
 - Depends on: None
 - Produces: Feasibility evidence, Android skeleton, foundational ADRs
 - Next milestone: M1 — Radio and survey foundation
@@ -134,10 +134,10 @@ and roadmap only after the decision is accepted.
 
 ## Acceptance criteria
 
-- [ ] The Android project builds from a clean checkout using documented commands.
-- [ ] Unit tests and lint run without physical hardware.
+- [x] The Android project builds from a clean checkout using documented commands.
+- [x] Unit tests and lint run without physical hardware.
 - [ ] The target phone grants USB permission and reads correct HackRF identity.
-- [ ] No application-facing native or Kotlin API exposes transmit behavior.
+- [x] No application-facing native or Kotlin API exposes transmit behavior.
 - [ ] At least 2 and 4 MS/s sustain for five minutes with zero unexplained data
   loss; 8 MS/s has measured pass/fail evidence.
 - [ ] A 15-minute screen-off run preserves USB RX, location, and notification
@@ -145,10 +145,10 @@ and roadmap only after the decision is accepted.
 - [ ] USB detach and cancellation close the device without a process restart.
 - [ ] Sweep frames produce verified frequency/power observations.
 - [ ] Stored observations render on a map with accuracy and an offline region.
-- [ ] All five foundational decisions have accepted ADRs.
+- [x] All five foundational decisions have accepted ADRs.
 - [ ] Benchmark and go/no-go reports identify the exact tested hardware and
   software configuration.
-- [ ] `scripts/Test-Planning.ps1` passes after roadmap and handoff updates.
+- [x] `scripts/Test-Planning.ps1` passes after roadmap and handoff updates.
 
 ## Validation
 
@@ -180,10 +180,30 @@ physical-device criterion cannot be satisfied by an emulator.
 
 Complete this section before marking M0 complete:
 
-- Commit and branch:
-- Delivered behavior:
-- Validation summary:
-- Hardware evidence:
-- ADRs:
-- Known limitations:
-- M1 starting point and cautions:
+- Commit and branch: single local M0 commit on `main`; publication withheld
+  until all M0 gates pass, per the delivery workflow.
+- Delivered behavior: Eight-module Kotlin/Compose/NDK scaffold; receive-only
+  API plus source/ELF guards; checksum-pinned upstream libusb/libhackrf Android
+  builds; Android file-descriptor open; validated RX configuration;
+  raw sweep-header/DFT processor; debug hardware identity/throughput/drop/error
+  UI; foreground RX/sweep plus location service with detach cleanup and a
+  visible Stop action; persisted synthetic MapLibre route/accuracy/strength
+  overlays and an offline download/reopen action.
+- Validation summary: `gradlew.bat lint test assembleDebug`,
+  `scripts/Test-ReceiveOnly.ps1`, `scripts/Test-NativeExports.ps1`, and
+  `scripts/Test-Planning.ps1` pass locally.
+  `:app-ui:connectedDebugAndroidTest` fails with `No connected devices!`, which
+  accurately preserves the unmet physical-device gate.
+- Hardware evidence: `docs/evidence/M0/benchmark-report.md` records the missing
+  target phone/topology/HackRF and the exact remaining procedure; no emulator is
+  presented as evidence.
+- ADRs: ADR 001 through ADR 005 accepted for project/toolchain, native
+  packaging, Android USB descriptor integration, service lifecycle, and maps.
+- Known limitations: Real device identity/permission, throughput, detach,
+  screen-off location, sweep fixture cross-check, and offline-map reopen all
+  require the named physical setup. M0 uses a one-slot latest-buffer handoff and
+  surfaces overwritten buffers; M1 must replace it with the production bounded
+  multistage acquisition/processing queues.
+- M1 starting point and cautions: Do not begin M1. Complete all pending physical
+  M0 evidence, update go/no-go outcomes, then check the remaining acceptance
+  criteria and set M0 complete/M1 ready only if the gate passes.
