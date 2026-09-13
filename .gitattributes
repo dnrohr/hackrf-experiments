@@ -1,0 +1,18 @@
+* text=auto
+
+*.md text eol=lf
+*.json text eol=lf
+*.kt text eol=lf
+*.kts text eol=lf
+*.xml text eol=lf
+*.c text eol=lf
+*.h text eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+
+*.bin -text
+*.iq -text
+*.cs8 -text
+*.cu8 -text
+*.png -text
+*.zip -text

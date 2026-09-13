@@ -5,6 +5,8 @@ generated captures stay out of Git.
 
 The proposed Android survey application is defined in
 [docs/android-rf-field-notebook-spec.md](docs/android-rf-field-notebook-spec.md).
+Implementation is organized in [ROADMAP.md](ROADMAP.md), with self-contained
+agent handoff briefs under [docs/milestones/](docs/milestones/README.md).
 
 ## Installed software
 
@@ -21,6 +23,12 @@ Reinstall on another Windows 11 machine with:
 
 ```powershell
 .\scripts\Install-HackRFTools.ps1
+```
+
+Validate roadmap structure and requirement ownership with:
+
+```powershell
+.\scripts\Test-Planning.ps1
 ```
 
 ## First connection
