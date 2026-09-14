@@ -785,7 +785,10 @@ class SurveyAcquisitionService : Service() {
         private const val CHANNEL = "survey-acquisition"
         private const val NOTIFICATION_ID = 101
         private const val NATIVE_QUEUE_CAPACITY = 4
-        private const val PROCESSING_QUEUE_CAPACITY = 16
+        // A 262,144-byte native transfer contains up to sixteen 16,384-byte
+        // sweep blocks, and each block yields two frames. Keep the queue
+        // bounded while absorbing one complete transfer burst.
+        private const val PROCESSING_QUEUE_CAPACITY = 128
         private const val PERSISTENCE_QUEUE_CAPACITY = 16
         private const val PERSISTENCE_BATCH_MAX_ITEMS = 64
         private const val MAX_RECENT_FIXES = 16
