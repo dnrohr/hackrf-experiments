@@ -19,6 +19,7 @@ namespace {
 constexpr std::int64_t kMinFrequencyHz = 1'000'000;
 constexpr std::int64_t kMaxFrequencyHz = 6'000'000'000;
 constexpr std::size_t kTransferBufferSize = 262'144;
+constexpr std::size_t kNativeBufferCount = 8;
 
 struct NativeSession {
     hackrf_device* device = nullptr;
@@ -28,9 +29,11 @@ struct NativeSession {
     std::atomic<std::uint64_t> dropped_blocks{0};
     std::mutex lifecycle;
     std::mutex buffer_mutex;
-    std::array<std::uint8_t, kTransferBufferSize> latest_buffer{};
-    std::size_t latest_length = 0;
-    bool buffer_available = false;
+    std::array<std::array<std::uint8_t, kTransferBufferSize>, kNativeBufferCount> buffers{};
+    std::array<std::size_t, kNativeBufferCount> buffer_lengths{};
+    std::size_t buffer_head = 0;
+    std::size_t buffer_tail = 0;
+    std::size_t buffer_count = 0;
     std::atomic<bool> streaming{false};
 };
 
@@ -82,7 +85,7 @@ int on_receive(hackrf_transfer* transfer) noexcept {
         session->callback_errors.fetch_add(1, std::memory_order_relaxed);
         return 0;
     }
-    if (static_cast<std::size_t>(transfer->valid_length) > session->latest_buffer.size()) {
+    if (static_cast<std::size_t>(transfer->valid_length) > kTransferBufferSize) {
         session->callback_errors.fetch_add(1, std::memory_order_relaxed);
         return 0;
     }
@@ -92,10 +95,14 @@ int on_receive(hackrf_transfer* transfer) noexcept {
         session->dropped_blocks.fetch_add(1, std::memory_order_relaxed);
         return 0;
     }
-    if (session->buffer_available) session->dropped_blocks.fetch_add(1, std::memory_order_relaxed);
-    std::memcpy(session->latest_buffer.data(), transfer->buffer, transfer->valid_length);
-    session->latest_length = static_cast<std::size_t>(transfer->valid_length);
-    session->buffer_available = true;
+    if (session->buffer_count == kNativeBufferCount) {
+        session->dropped_blocks.fetch_add(1, std::memory_order_relaxed);
+        return 0;
+    }
+    std::memcpy(session->buffers[session->buffer_tail].data(), transfer->buffer, transfer->valid_length);
+    session->buffer_lengths[session->buffer_tail] = static_cast<std::size_t>(transfer->valid_length);
+    session->buffer_tail = (session->buffer_tail + 1) % kNativeBufferCount;
+    session->buffer_count++;
     return 0;
 }
 
@@ -115,8 +122,10 @@ void reset_capture_state(NativeSession* session) {
     session->callback_errors.store(0, std::memory_order_relaxed);
     session->dropped_blocks.store(0, std::memory_order_relaxed);
     std::lock_guard<std::mutex> guard(session->buffer_mutex);
-    session->latest_length = 0;
-    session->buffer_available = false;
+    session->buffer_head = 0;
+    session->buffer_tail = 0;
+    session->buffer_count = 0;
+    session->buffer_lengths.fill(0);
 }
 
 }  // namespace
@@ -272,12 +281,17 @@ Java_dev_rfnotebook_radio_hackrf_NativeHackrf_nativePollBuffer(JNIEnv* env, jobj
     auto* session = from_handle(handle);
     if (session == nullptr) return nullptr;
     std::lock_guard<std::mutex> guard(session->buffer_mutex);
-    if (!session->buffer_available) return nullptr;
-    const auto length = static_cast<jsize>(session->latest_length);
+    if (session->buffer_count == 0) return nullptr;
+    const auto length = static_cast<jsize>(session->buffer_lengths[session->buffer_head]);
     jbyteArray result = env->NewByteArray(length);
     if (result == nullptr) return nullptr;
-    env->SetByteArrayRegion(result, 0, length, reinterpret_cast<const jbyte*>(session->latest_buffer.data()));
-    session->buffer_available = false;
+    env->SetByteArrayRegion(
+        result, 0, length,
+        reinterpret_cast<const jbyte*>(session->buffers[session->buffer_head].data())
+    );
+    if (env->ExceptionCheck()) return nullptr;
+    session->buffer_head = (session->buffer_head + 1) % kNativeBufferCount;
+    session->buffer_count--;
     return result;
 }
 

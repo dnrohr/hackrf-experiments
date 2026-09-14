@@ -57,7 +57,10 @@ survey gate, sustained 30-minute behavior, or detach/recovery acceptance.
 The run demonstrates screen-off operation and visible loss accounting, but it is
 not a clean performance gate because the drop count was nonzero. The exact
 physical cable/adapter topology, pause/resume, detach/reattach, process-death,
-queue-pressure, and low-storage cases remain pending.
+queue-pressure, and low-storage cases remain pending. The native adapter has
+since been changed from the M0 one-slot buffer to a bounded eight-buffer ring;
+the run above predates that change and must not be used to judge the revised
+drop rate.
 
 ## Remaining production gate evidence
 
