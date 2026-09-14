@@ -28,6 +28,25 @@ Status: Production survey recorded; recovery cases pending
 This is compatibility-test evidence only. It does not claim the M1 production
 survey gate, sustained 30-minute behavior, or detach/recovery acceptance.
 
+### Post-buffer-change compatibility retest
+
+- Date: 2026-09-14
+- Phone: Google Pixel 8a, Android 17; wireless ADB; full device identifier omitted
+- HackRF: Great Scott Gadgets HackRF One; full serial omitted
+- App build: M1 APK with the bounded eight-buffer native ring and compatibility
+  service firmware/API gate
+- Receive mode: 2 MS/s compatibility RX; no transmit control or path was used
+- Observation: foreground notification reported 195,559,424 received bytes and
+  0 dropped buffers after the short retest interval
+- Cleanup: the service process was stopped and no RF Notebook foreground service
+  remained afterward. Because Android rejected a shell-issued action for the
+  non-exported service, this cleanup used the app-process stop fallback and is
+  not evidence for the production survey Stop/finalization path.
+
+This retest is stronger evidence for the revised native buffering path, but it
+does not replace the pending production survey, detach/recovery, or clean-stop
+evidence.
+
 ## Production survey observation
 
 - Date: 2026-09-14

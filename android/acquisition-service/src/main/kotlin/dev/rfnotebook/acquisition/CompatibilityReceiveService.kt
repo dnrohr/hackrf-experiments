@@ -287,7 +287,7 @@ class CompatibilityReceiveService : Service() {
         const val ACTION_STOP = "dev.rfnotebook.action.STOP_COMPATIBILITY_RECEIVE"
         const val EXTRA_SAMPLE_RATE_HZ = "sample-rate-hz"
         const val EXTRA_SWEEP = "sweep"
-        private const val CHANNEL = "m0-acquisition"
+        private const val CHANNEL = "compatibility-receive"
         private const val NOTIFICATION_ID = 100
         private const val DEFAULT_SAMPLE_RATE_HZ = 2_000_000
         private const val TEST_CENTER_FREQUENCY_HZ = 100_000_000L
