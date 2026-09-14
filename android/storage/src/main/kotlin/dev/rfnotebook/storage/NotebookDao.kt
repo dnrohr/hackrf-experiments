@@ -70,6 +70,9 @@ interface NotebookDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertLocationFix(fix: LocationFixEntity)
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertLocationFixes(fixes: List<LocationFixEntity>)
+
     @Query("SELECT * FROM location_fixes WHERE surveyId = :surveyId AND monotonicNs BETWEEN :fromNs AND :toNs ORDER BY monotonicNs")
     suspend fun locationFixes(surveyId: String, fromNs: Long, toNs: Long): List<LocationFixEntity>
 
@@ -80,6 +83,12 @@ interface NotebookDao {
     suspend fun insertAggregateBatch(fix: LocationFixEntity?, aggregates: List<SpectrumAggregateEntity>) {
         fix?.let { insertLocationFix(it) }
         insertAggregates(aggregates)
+    }
+
+    @Transaction
+    suspend fun insertSurveyBatch(fixes: List<LocationFixEntity>, aggregates: List<SpectrumAggregateEntity>) {
+        if (fixes.isNotEmpty()) insertLocationFixes(fixes)
+        if (aggregates.isNotEmpty()) insertAggregates(aggregates)
     }
 
     @Insert(onConflict = OnConflictStrategy.ABORT)

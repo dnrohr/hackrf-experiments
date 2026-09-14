@@ -331,13 +331,28 @@ class SurveyAcquisitionService : Service() {
         }
         workers += scope.launch {
             while (isActive) {
-                when (val item = persistenceQueue.receive()) {
-                    is PersistItem.Fix -> database.notebookDao().insertLocationFix(item.value)
-                    is PersistItem.Aggregates -> {
-                        database.notebookDao().insertAggregateBatch(item.fix, item.values)
-                        aggregatesPersisted += item.values.size
+                val items = buildList {
+                    add(persistenceQueue.receive())
+                    while (size < PERSISTENCE_BATCH_MAX_ITEMS) {
+                        val next = persistenceQueue.poll() ?: break
+                        add(next)
                     }
                 }
+                val fixes = items.asSequence()
+                    .mapNotNull { item -> when (item) {
+                        is PersistItem.Fix -> item.value
+                        is PersistItem.Aggregates -> item.fix
+                    } }
+                    .distinctBy { it.id }
+                    .toList()
+                val aggregates = items.flatMap { item ->
+                    when (item) {
+                        is PersistItem.Fix -> emptyList()
+                        is PersistItem.Aggregates -> item.values
+                    }
+                }
+                database.notebookDao().insertSurveyBatch(fixes, aggregates)
+                aggregatesPersisted += aggregates.size
             }
         }
         workers += scope.launch { publishHealthLoop() }
@@ -772,6 +787,7 @@ class SurveyAcquisitionService : Service() {
         private const val NATIVE_QUEUE_CAPACITY = 4
         private const val PROCESSING_QUEUE_CAPACITY = 16
         private const val PERSISTENCE_QUEUE_CAPACITY = 16
+        private const val PERSISTENCE_BATCH_MAX_ITEMS = 64
         private const val MAX_RECENT_FIXES = 16
         private const val MAX_FIX_AGE_NS = 5_000_000_000L
         private const val MAX_INTERPOLATION_GAP_NS = 10_000_000_000L

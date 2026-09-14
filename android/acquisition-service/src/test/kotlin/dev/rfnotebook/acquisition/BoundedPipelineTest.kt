@@ -61,6 +61,16 @@ class BoundedPipelineTest {
         assertEquals(2L, queue.droppedCount)
     }
 
+    @Test fun `poll removes an item without counting it as dropped`() {
+        val queue = BoundedStage<Int>(PipelineStage.PERSISTENCE, 2)
+        queue.offer(7)
+
+        assertEquals(7, queue.poll())
+        assertEquals(0, queue.depth)
+        assertEquals(0L, queue.droppedCount)
+        assertEquals(null, queue.poll())
+    }
+
     @Test fun `pressure injection creates a user-visible warning`() {
         val native = BoundedStage<Int>(PipelineStage.NATIVE, 1)
         val processing = BoundedStage<Int>(PipelineStage.PROCESSING, 1)

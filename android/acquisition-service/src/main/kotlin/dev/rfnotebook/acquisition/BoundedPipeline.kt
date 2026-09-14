@@ -39,6 +39,8 @@ class BoundedStage<T>(
         return value
     }
 
+    fun poll(): T? = channel.tryReceive().getOrNull()?.also { depthCounter.decrementAndGet() }
+
     fun discardPending(): Int {
         var discarded = 0
         while (channel.tryReceive().isSuccess) {
