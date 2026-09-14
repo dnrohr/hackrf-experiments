@@ -107,14 +107,21 @@ class NativeRadioSession internal constructor(
     override suspend fun startRx(config: RxConfig, sink: SampleSink) {
         RadioLimits.requireValid(config)
         stopDelivery()
-        checkNative(NativeHackrf.nativeStartRx(requireOpen(), config.centerFrequencyHz, config.sampleRateHz), "start RX")
+        checkNative(NativeHackrf.nativeStartRx(
+            requireOpen(), config.centerFrequencyHz, config.sampleRateHz, config.basebandFilterHz,
+            config.lnaGainDb, config.vgaGainDb, config.rfAmpEnabled, config.antennaPowerEnabled,
+        ), "start RX")
         deliveryJob = deliveryScope.launch { deliverBuffers { buffer, timestamp -> sink.onSamples(buffer, timestamp) } }
     }
 
     override suspend fun startSweep(config: SweepConfig, sink: SweepSink) {
         RadioLimits.requireValid(config)
         stopDelivery()
-        checkNative(NativeHackrf.nativeStartSweep(requireOpen(), config.startFrequencyHz, config.endFrequencyHz, config.binWidthHz, config.sampleRateHz), "start sweep")
+        checkNative(NativeHackrf.nativeStartSweep(
+            requireOpen(), config.startFrequencyHz, config.endFrequencyHz, config.binWidthHz, config.sampleRateHz,
+            config.basebandFilterHz, config.lnaGainDb, config.vgaGainDb,
+            config.rfAmpEnabled, config.antennaPowerEnabled,
+        ), "start sweep")
         deliveryJob = deliveryScope.launch { deliverBuffers { buffer, timestamp -> sink.onFrame(buffer, timestamp) } }
     }
 

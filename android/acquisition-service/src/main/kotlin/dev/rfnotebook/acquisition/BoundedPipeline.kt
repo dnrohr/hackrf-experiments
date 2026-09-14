@@ -39,6 +39,16 @@ class BoundedStage<T>(
         return value
     }
 
+    fun discardPending(): Int {
+        var discarded = 0
+        while (channel.tryReceive().isSuccess) {
+            depthCounter.decrementAndGet()
+            droppedCounter.incrementAndGet()
+            discarded++
+        }
+        return discarded
+    }
+
     fun close() = channel.close()
 }
 

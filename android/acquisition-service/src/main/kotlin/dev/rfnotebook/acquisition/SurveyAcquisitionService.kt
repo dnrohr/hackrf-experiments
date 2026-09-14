@@ -34,6 +34,8 @@ import dev.rfnotebook.domain.LocationAssociator
 import dev.rfnotebook.domain.LocationFix
 import dev.rfnotebook.domain.SurveyCommand
 import dev.rfnotebook.domain.SurveyStatus
+import dev.rfnotebook.domain.RadioConnectionCommand
+import dev.rfnotebook.domain.RadioConnectionStatus
 import dev.rfnotebook.radio.api.HackrfCompatibilityPolicy as RadioCompatibilityPolicy
 import dev.rfnotebook.radio.api.RadioException
 import dev.rfnotebook.radio.api.RadioErrorCode
@@ -63,6 +65,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 data class SurveyAcquisitionState(
     val surveyId: String? = null,
@@ -121,7 +124,7 @@ class SurveyAcquisitionService : Service() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val device = intent?.let { IntentCompat.getParcelableExtra(it, UsbManager.EXTRA_DEVICE, UsbDevice::class.java) }
             if (device == null || device.vendorId != HACKRF_VENDOR_ID || device.productId !in HACKRF_PRODUCT_IDS) return
-            when (intent?.action) {
+            when (intent.action) {
                 UsbManager.ACTION_USB_DEVICE_DETACHED -> scope.launch { handleDetach() }
                 UsbManager.ACTION_USB_DEVICE_ATTACHED -> updateNotification("HackRF attached; tap Resume when ready")
             }
@@ -155,6 +158,11 @@ class SurveyAcquisitionService : Service() {
                 intent.getLongExtra(EXTRA_END_FREQUENCY_HZ, 0),
                 binWidthHz,
                 sampleRateHz,
+                intent.getIntExtra(EXTRA_BASEBAND_FILTER_HZ, 0),
+                intent.getIntExtra(EXTRA_LNA_GAIN_DB, 0),
+                intent.getIntExtra(EXTRA_VGA_GAIN_DB, 0),
+                intent.getBooleanExtra(EXTRA_RF_AMP_ENABLED, false),
+                intent.getBooleanExtra(EXTRA_ANTENNA_POWER_ENABLED, false),
             )
             val suffix = requireNotNull(intent.getStringExtra(EXTRA_SERIAL_SUFFIX)) { "Missing selected serial suffix" }
             check(config.binWidthHz > 0) { "Sweep bin width must be positive" }
@@ -216,6 +224,7 @@ class SurveyAcquisitionService : Service() {
                 coordinator.command(surveyId, SurveyCommand.Stop)
             }
             stopWorkers()
+            persistFinalHealth()
             coordinator.command(surveyId, SurveyCommand.Finalize)
             radioController.close()
             SurveyAcquisitionStatus.update(SurveyAcquisitionStatus.state.value.copy(status = SurveyStatus.COMPLETE))
@@ -225,9 +234,10 @@ class SurveyAcquisitionService : Service() {
 
     private suspend fun handleDetach() {
         if (!::coordinator.isInitialized) return
-        radioController.close()
+        radioController.closeNative()
         val current = database.notebookDao().survey(surveyId)
         if (current?.status == SurveyStatus.ACTIVE.name) coordinator.command(surveyId, SurveyCommand.Pause)
+        radioController.markRecoverable("USB detached")
         RoomSurveyStateStore(database.notebookDao()).recordGap(
             surveyId, GapReason.USB_DETACH, System.currentTimeMillis(), SystemClock.elapsedRealtimeNanos(),
         )
@@ -301,13 +311,15 @@ class SurveyAcquisitionService : Service() {
             lastStatsNs = nowNs
             val health = counters.snapshot(nativeQueue, processingQueue, persistenceQueue)
             val storage = StatFs(filesDir.absolutePath).availableBytes
-            val warning = buildList {
-                if (health.hasDataLoss) add("Acquisition loss recorded")
-                if (storage < StorageGuard.DEFAULT_RESERVE_BYTES) add("Storage reserve is low")
-            }.joinToString("; ").ifBlank { null }
             val battery = getSystemService(BatteryManager::class.java)
                 .getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY).takeIf { it in 0..100 }
             val thermal = getSystemService(PowerManager::class.java).currentThermalStatus
+            val warning = buildList {
+                if (health.hasDataLoss) add("Acquisition loss recorded")
+                if (storage < StorageGuard.DEFAULT_RESERVE_BYTES) add("Storage reserve is low")
+                if (battery != null && battery <= LOW_BATTERY_PERCENT) add("Battery is low; orderly Stop is available")
+                if (thermal >= PowerManager.THERMAL_STATUS_MODERATE) add("Thermal pressure detected; measurement settings remain fixed")
+            }.joinToString("; ").ifBlank { null }
             database.notebookDao().insertHealthSnapshot(
                 HealthSnapshotEntity(
                     surveyId = surveyId,
@@ -373,8 +385,9 @@ class SurveyAcquisitionService : Service() {
     }
 
     private suspend fun handleRadioStall() {
-        radioController.close()
+        radioController.closeNative()
         coordinator.command(surveyId, SurveyCommand.Pause)
+        radioController.markRecoverable("Radio transfer stalled")
         RoomSurveyStateStore(database.notebookDao()).recordGap(
             surveyId, GapReason.RADIO_STALL, System.currentTimeMillis(), SystemClock.elapsedRealtimeNanos(),
         )
@@ -493,24 +506,54 @@ class SurveyAcquisitionService : Service() {
     }
 
     private suspend fun stopWorkers() {
-        val drainDeadline = SystemClock.elapsedRealtime() + PIPELINE_DRAIN_TIMEOUT_MS
-        while ((nativeQueue.depth + processingQueue.depth + persistenceQueue.depth) > 0 &&
-            SystemClock.elapsedRealtime() < drainDeadline
-        ) {
-            delay(10)
-        }
+        if (workers.isEmpty()) return
+        val nativeWorker = workers[0]
+        val processingWorker = workers[1]
+        val flushWorker = workers[2]
+        val persistenceWorker = workers[3]
+        val healthWorker = workers[4]
+        flushWorker.cancel()
+        flushWorker.join()
+        nativeQueue.close()
+        var timedOut = withTimeoutOrNull(PIPELINE_DRAIN_TIMEOUT_MS) { nativeWorker.join(); true } != true
+        processingQueue.close()
+        timedOut = (withTimeoutOrNull(PIPELINE_DRAIN_TIMEOUT_MS) { processingWorker.join(); true } != true) || timedOut
         enqueueSummaries(accumulator.flushAll())
-        val persistenceDeadline = SystemClock.elapsedRealtime() + PIPELINE_DRAIN_TIMEOUT_MS
-        while (persistenceQueue.depth > 0 && SystemClock.elapsedRealtime() < persistenceDeadline) delay(10)
-        workers.forEach { it.cancel() }
+        persistenceQueue.close()
+        timedOut = (withTimeoutOrNull(PIPELINE_DRAIN_TIMEOUT_MS) { persistenceWorker.join(); true } != true) || timedOut
+        healthWorker.cancel()
+        healthWorker.join()
+        workers.forEach { if (it.isActive) it.cancel() }
         workers.forEach { runCatching { it.join() } }
         workers.clear()
+        nativeQueue.discardPending()
+        processingQueue.discardPending()
+        persistenceQueue.discardPending()
+        if (timedOut) {
+            counters.increment(HealthCounter.SERVICE_GAP)
+            RoomSurveyStateStore(database.notebookDao()).recordGap(
+                surveyId, GapReason.QUEUE_PRESSURE, System.currentTimeMillis(), SystemClock.elapsedRealtimeNanos(),
+            )
+        }
+    }
+
+    private suspend fun persistFinalHealth() {
+        val health = counters.snapshot(nativeQueue, processingQueue, persistenceQueue)
+        database.notebookDao().updateSurveyHealth(
+            surveyId = surveyId,
+            locationCoverageRatio = locatedBatches.get().toDouble() / totalBatches.get().coerceAtLeast(1),
+            droppedFrameCount = health.droppedNativeUnits + health.droppedProcessingUnits + health.droppedPersistenceUnits,
+            overrunCount = health.overrunCount,
+            malformedFrameCount = health.malformedFrameCount,
+            staleFixCount = health.staleFixCount,
+            unlocatedObservationCount = unlocatedObservations.get(),
+        )
     }
 
     override fun onDestroy() {
         runCatching { locationManager.removeUpdates(locationListener) }
         if (receiverRegistered) runCatching { unregisterReceiver(usbReceiver) }
-        if (::radioController.isInitialized) radioController.close()
+        if (::radioController.isInitialized) radioController.closeNative()
         scope.cancel()
         super.onDestroy()
     }
@@ -522,17 +565,41 @@ class SurveyAcquisitionService : Service() {
         private val config: SweepConfig,
     ) : SurveyRadioController {
         private var session: NativeRadioSession? = null
+        private val connectionStore = RoomRadioConnectionStore(
+            database.notebookDao(),
+            "radio:$serialSuffix",
+        ) { SurveyTime(System.currentTimeMillis(), SystemClock.elapsedRealtimeNanos()) }
 
         override suspend fun start() {
             if (session == null) {
-                val opened = AndroidHackrfRadio(this@SurveyAcquisitionService).open(serialSuffix) as NativeRadioSession
+                when (connectionStore.state().status) {
+                    RadioConnectionStatus.DISCONNECTED -> connectionStore.transition(RadioConnectionCommand.Attach(true))
+                    RadioConnectionStatus.ERROR_RECOVERABLE -> connectionStore.transition(RadioConnectionCommand.Retry)
+                    RadioConnectionStatus.READY -> {
+                        connectionStore.transition(RadioConnectionCommand.RecoverableError("Reopening process-local radio session"))
+                        connectionStore.transition(RadioConnectionCommand.Retry)
+                    }
+                    RadioConnectionStatus.OPENING -> Unit
+                    else -> connectionStore.transition(RadioConnectionCommand.Close).also {
+                        connectionStore.transition(RadioConnectionCommand.Closed)
+                        connectionStore.transition(RadioConnectionCommand.Attach(true))
+                    }
+                }
+                val opened = try {
+                    AndroidHackrfRadio(this@SurveyAcquisitionService).open(serialSuffix) as NativeRadioSession
+                } catch (failure: Throwable) {
+                    connectionStore.transition(RadioConnectionCommand.RecoverableError(failure.message ?: "Open failed"))
+                    throw failure
+                }
                 val info = opened.deviceInfo()
                 val compatibility = RadioCompatibilityPolicy.evaluate(info)
                 if (!compatibility.compatible) {
                     opened.close()
+                    connectionStore.transition(RadioConnectionCommand.TerminalError(compatibility.explanation))
                     throw RadioException(RadioErrorCode.INCOMPATIBLE_FIRMWARE, compatibility.explanation)
                 }
                 session = opened
+                connectionStore.transition(RadioConnectionCommand.Opened)
                 database.notebookDao().radioDevice("radio:$serialSuffix")?.let { stored ->
                     database.notebookDao().insertRadioDevice(
                         stored.copy(
@@ -554,17 +621,31 @@ class SurveyAcquisitionService : Service() {
             session!!.startSweep(config, SweepSink { bytes, monotonicNs ->
                 nativeQueue.offer(RawTransfer(bytes, System.currentTimeMillis(), monotonicNs))
             })
+            connectionStore.transition(RadioConnectionCommand.StartSurvey)
         }
 
         override suspend fun stop() {
             session?.stop()
+            if (connectionStore.state().status == RadioConnectionStatus.SURVEYING) {
+                connectionStore.transition(RadioConnectionCommand.StopSurvey)
+            }
         }
 
         fun statsOrNull() = runCatching { session?.stats() }.getOrNull()
 
-        fun close() {
+        fun closeNative() {
             session?.close()
             session = null
+        }
+
+        suspend fun markRecoverable(explanation: String) {
+            connectionStore.transition(RadioConnectionCommand.RecoverableError(explanation))
+        }
+
+        suspend fun close() {
+            runCatching { connectionStore.transition(RadioConnectionCommand.Close) }
+            closeNative()
+            runCatching { connectionStore.transition(RadioConnectionCommand.Closed) }
         }
     }
 
@@ -579,6 +660,11 @@ class SurveyAcquisitionService : Service() {
         const val EXTRA_END_FREQUENCY_HZ = "end-frequency-hz"
         const val EXTRA_BIN_WIDTH_HZ = "bin-width-hz"
         const val EXTRA_SAMPLE_RATE_HZ = "sample-rate-hz"
+        const val EXTRA_BASEBAND_FILTER_HZ = "baseband-filter-hz"
+        const val EXTRA_LNA_GAIN_DB = "lna-gain-db"
+        const val EXTRA_VGA_GAIN_DB = "vga-gain-db"
+        const val EXTRA_RF_AMP_ENABLED = "rf-amp-enabled"
+        const val EXTRA_ANTENNA_POWER_ENABLED = "antenna-power-enabled"
         private const val CHANNEL = "survey-acquisition"
         private const val NOTIFICATION_ID = 101
         private const val NATIVE_QUEUE_CAPACITY = 4
@@ -593,6 +679,7 @@ class SurveyAcquisitionService : Service() {
         private const val PIPELINE_DRAIN_TIMEOUT_MS = 5_000L
         private const val DEFAULT_SURVEY_SECONDS = 1_800L
         private const val ESTIMATED_AGGREGATE_BYTES = 128L
+        private const val LOW_BATTERY_PERCENT = 15
         private const val HACKRF_VENDOR_ID = 0x1d50
         private val HACKRF_PRODUCT_IDS = setOf(0x6089, 0x604b, 0xcc15)
     }

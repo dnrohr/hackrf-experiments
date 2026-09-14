@@ -43,6 +43,38 @@ bool valid_rate(jint sample_rate_hz) noexcept {
            sample_rate_hz == 8'000'000;
 }
 
+bool valid_filter(jint sample_rate_hz, jint baseband_filter_hz) noexcept {
+    return baseband_filter_hz == 0 ||
+           (sample_rate_hz == 2'000'000 && baseband_filter_hz == 1'750'000) ||
+           (sample_rate_hz == 4'000'000 && baseband_filter_hz == 3'500'000) ||
+           (sample_rate_hz == 8'000'000 && baseband_filter_hz == 7'000'000);
+}
+
+bool valid_settings(jint sample_rate_hz, jint baseband_filter_hz, jint lna_gain_db, jint vga_gain_db) noexcept {
+    return valid_filter(sample_rate_hz, baseband_filter_hz) &&
+           lna_gain_db >= 0 && lna_gain_db <= 40 && lna_gain_db % 8 == 0 &&
+           vga_gain_db >= 0 && vga_gain_db <= 62 && vga_gain_db % 2 == 0;
+}
+
+int apply_settings(NativeSession* session, jint sample_rate_hz, jint baseband_filter_hz,
+                   jint lna_gain_db, jint vga_gain_db, jboolean rf_amp_enabled,
+                   jboolean antenna_power_enabled) noexcept {
+    int result = hackrf_set_amp_enable(session->device, 0);
+    if (result == HACKRF_SUCCESS) result = hackrf_set_antenna_enable(session->device, 0);
+    if (result == HACKRF_SUCCESS) result = hackrf_set_lna_gain(session->device, static_cast<std::uint32_t>(lna_gain_db));
+    if (result == HACKRF_SUCCESS) result = hackrf_set_vga_gain(session->device, static_cast<std::uint32_t>(vga_gain_db));
+    if (result == HACKRF_SUCCESS) result = hackrf_set_sample_rate(session->device, sample_rate_hz);
+    if (result == HACKRF_SUCCESS) {
+        const auto filter = baseband_filter_hz == 0
+            ? hackrf_compute_baseband_filter_bw_round_down_lt(sample_rate_hz)
+            : static_cast<std::uint32_t>(baseband_filter_hz);
+        result = hackrf_set_baseband_filter_bandwidth(session->device, filter);
+    }
+    if (result == HACKRF_SUCCESS) result = hackrf_set_amp_enable(session->device, rf_amp_enabled == JNI_TRUE ? 1 : 0);
+    if (result == HACKRF_SUCCESS) result = hackrf_set_antenna_enable(session->device, antenna_power_enabled == JNI_TRUE ? 1 : 0);
+    return result;
+}
+
 int on_receive(hackrf_transfer* transfer) noexcept {
     if (transfer == nullptr || transfer->rx_ctx == nullptr) return -1;
     auto* session = static_cast<NativeSession*>(transfer->rx_ctx);
@@ -68,9 +100,13 @@ int on_receive(hackrf_transfer* transfer) noexcept {
 }
 
 int safe_stop(NativeSession* session) noexcept {
-    if (!session->streaming.load(std::memory_order_acquire)) return HACKRF_SUCCESS;
-    const int result = hackrf_stop_rx(session->device);
+    int result = HACKRF_SUCCESS;
+    if (session->streaming.load(std::memory_order_acquire)) result = hackrf_stop_rx(session->device);
     session->streaming.store(false, std::memory_order_release);
+    const int amp_result = hackrf_set_amp_enable(session->device, 0);
+    const int antenna_result = hackrf_set_antenna_enable(session->device, 0);
+    if (result == HACKRF_SUCCESS && amp_result != HACKRF_SUCCESS) result = amp_result;
+    if (result == HACKRF_SUCCESS && antenna_result != HACKRF_SUCCESS) result = antenna_result;
     return result;
 }
 
@@ -134,24 +170,24 @@ Java_dev_rfnotebook_radio_hackrf_NativeHackrf_nativeDeviceInfo(JNIEnv* env, jobj
 
 extern "C" JNIEXPORT jint JNICALL
 Java_dev_rfnotebook_radio_hackrf_NativeHackrf_nativeStartRx(
-    JNIEnv*, jobject, jlong handle, jlong frequency_hz, jint sample_rate_hz) {
+    JNIEnv*, jobject, jlong handle, jlong frequency_hz, jint sample_rate_hz,
+    jint baseband_filter_hz, jint lna_gain_db, jint vga_gain_db,
+    jboolean rf_amp_enabled, jboolean antenna_power_enabled) {
     auto* session = from_handle(handle);
     if (session == nullptr || session->device == nullptr || frequency_hz < kMinFrequencyHz ||
-        frequency_hz > kMaxFrequencyHz || !valid_rate(sample_rate_hz)) return HACKRF_ERROR_INVALID_PARAM;
+        frequency_hz > kMaxFrequencyHz || !valid_rate(sample_rate_hz) ||
+        !valid_settings(sample_rate_hz, baseband_filter_hz, lna_gain_db, vga_gain_db)) return HACKRF_ERROR_INVALID_PARAM;
     std::lock_guard<std::mutex> guard(session->lifecycle);
     if (session->streaming.load(std::memory_order_acquire)) return HACKRF_ERROR_BUSY;
     reset_capture_state(session);
-    int result = hackrf_set_amp_enable(session->device, 0);
-    if (result == HACKRF_SUCCESS) result = hackrf_set_antenna_enable(session->device, 0);
-    if (result == HACKRF_SUCCESS) result = hackrf_set_lna_gain(session->device, 0);
-    if (result == HACKRF_SUCCESS) result = hackrf_set_vga_gain(session->device, 0);
-    if (result == HACKRF_SUCCESS) result = hackrf_set_sample_rate(session->device, sample_rate_hz);
-    if (result == HACKRF_SUCCESS) {
-        result = hackrf_set_baseband_filter_bandwidth(
-            session->device, hackrf_compute_baseband_filter_bw_round_down_lt(sample_rate_hz));
-    }
+    int result = apply_settings(session, sample_rate_hz, baseband_filter_hz, lna_gain_db, vga_gain_db,
+                                rf_amp_enabled, antenna_power_enabled);
     if (result == HACKRF_SUCCESS) result = hackrf_set_freq(session->device, static_cast<std::uint64_t>(frequency_hz));
     if (result == HACKRF_SUCCESS) result = hackrf_start_rx(session->device, on_receive, session);
+    if (result != HACKRF_SUCCESS) {
+        hackrf_set_amp_enable(session->device, 0);
+        hackrf_set_antenna_enable(session->device, 0);
+    }
     session->streaming.store(result == HACKRF_SUCCESS, std::memory_order_release);
     return result;
 }
@@ -159,11 +195,14 @@ Java_dev_rfnotebook_radio_hackrf_NativeHackrf_nativeStartRx(
 extern "C" JNIEXPORT jint JNICALL
 Java_dev_rfnotebook_radio_hackrf_NativeHackrf_nativeStartSweep(
     JNIEnv*, jobject, jlong handle, jlong start_frequency_hz, jlong end_frequency_hz,
-    jint bin_width_hz, jint sample_rate_hz) {
+    jint bin_width_hz, jint sample_rate_hz, jint baseband_filter_hz,
+    jint lna_gain_db, jint vga_gain_db, jboolean rf_amp_enabled,
+    jboolean antenna_power_enabled) {
     auto* session = from_handle(handle);
     if (session == nullptr || session->device == nullptr ||
         start_frequency_hz < kMinFrequencyHz || end_frequency_hz > kMaxFrequencyHz ||
-        start_frequency_hz >= end_frequency_hz || bin_width_hz <= 0 || !valid_rate(sample_rate_hz)) {
+        start_frequency_hz >= end_frequency_hz || bin_width_hz <= 0 || !valid_rate(sample_rate_hz) ||
+        !valid_settings(sample_rate_hz, baseband_filter_hz, lna_gain_db, vga_gain_db)) {
         return HACKRF_ERROR_INVALID_PARAM;
     }
     const std::uint16_t range_mhz[] = {
@@ -173,15 +212,8 @@ Java_dev_rfnotebook_radio_hackrf_NativeHackrf_nativeStartSweep(
     std::lock_guard<std::mutex> guard(session->lifecycle);
     if (session->streaming.load(std::memory_order_acquire)) return HACKRF_ERROR_BUSY;
     reset_capture_state(session);
-    int result = hackrf_set_amp_enable(session->device, 0);
-    if (result == HACKRF_SUCCESS) result = hackrf_set_antenna_enable(session->device, 0);
-    if (result == HACKRF_SUCCESS) result = hackrf_set_lna_gain(session->device, 0);
-    if (result == HACKRF_SUCCESS) result = hackrf_set_vga_gain(session->device, 0);
-    if (result == HACKRF_SUCCESS) result = hackrf_set_sample_rate(session->device, sample_rate_hz);
-    if (result == HACKRF_SUCCESS) {
-        result = hackrf_set_baseband_filter_bandwidth(
-            session->device, hackrf_compute_baseband_filter_bw_round_down_lt(sample_rate_hz));
-    }
+    int result = apply_settings(session, sample_rate_hz, baseband_filter_hz, lna_gain_db, vga_gain_db,
+                                rf_amp_enabled, antenna_power_enabled);
     if (result == HACKRF_SUCCESS) {
         const auto step_width = static_cast<std::uint32_t>(sample_rate_hz);
         const auto offset = static_cast<std::uint32_t>(sample_rate_hz / 2);
@@ -189,6 +221,10 @@ Java_dev_rfnotebook_radio_hackrf_NativeHackrf_nativeStartSweep(
                                    step_width, offset, INTERLEAVED);
     }
     if (result == HACKRF_SUCCESS) result = hackrf_start_rx_sweep(session->device, on_receive, session);
+    if (result != HACKRF_SUCCESS) {
+        hackrf_set_amp_enable(session->device, 0);
+        hackrf_set_antenna_enable(session->device, 0);
+    }
     session->streaming.store(result == HACKRF_SUCCESS, std::memory_order_release);
     return result;
 }

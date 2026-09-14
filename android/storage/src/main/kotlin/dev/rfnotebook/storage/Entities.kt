@@ -3,6 +3,7 @@ package dev.rfnotebook.storage
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
+import androidx.room.ColumnInfo
 
 @Entity(tableName = "radio_devices")
 data class RadioDeviceEntity(
@@ -14,6 +15,29 @@ data class RadioDeviceEntity(
     val usbApiVersion: String,
     val firstSeenAtEpochMs: Long,
     val lastSeenAtEpochMs: Long,
+    @ColumnInfo(defaultValue = "'DISCONNECTED'") val connectionState: String = "DISCONNECTED",
+    @ColumnInfo(defaultValue = "0") val connectionRevision: Long = 0,
+)
+
+@Entity(
+    tableName = "connection_state_events",
+    indices = [Index("radioDeviceId")],
+    foreignKeys = [ForeignKey(
+        entity = RadioDeviceEntity::class,
+        parentColumns = ["id"],
+        childColumns = ["radioDeviceId"],
+        onDelete = ForeignKey.CASCADE,
+    )],
+)
+data class ConnectionStateEventEntity(
+    @androidx.room.PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val radioDeviceId: String,
+    val fromState: String,
+    val toState: String,
+    val revision: Long,
+    val wallTimeEpochMs: Long,
+    val monotonicNs: Long,
+    val explanation: String?,
 )
 
 @Entity(

@@ -51,13 +51,26 @@ object HackrfCompatibilityPolicy {
     }
 }
 
-data class RxConfig(val centerFrequencyHz: Long, val sampleRateHz: Int)
+data class RxConfig(
+    val centerFrequencyHz: Long,
+    val sampleRateHz: Int,
+    val basebandFilterHz: Int = 0,
+    val lnaGainDb: Int = 0,
+    val vgaGainDb: Int = 0,
+    val rfAmpEnabled: Boolean = false,
+    val antennaPowerEnabled: Boolean = false,
+)
 
 data class SweepConfig(
     val startFrequencyHz: Long,
     val endFrequencyHz: Long,
     val binWidthHz: Int,
     val sampleRateHz: Int,
+    val basebandFilterHz: Int = 0,
+    val lnaGainDb: Int = 0,
+    val vgaGainDb: Int = 0,
+    val rfAmpEnabled: Boolean = false,
+    val antennaPowerEnabled: Boolean = false,
 )
 
 fun interface SampleSink { fun onSamples(samples: ByteArray, monotonicNanos: Long) }
@@ -88,6 +101,7 @@ object RadioLimits {
         requireSupported(config.sampleRateHz in supportedSampleRatesHz) {
             "Sample rate ${config.sampleRateHz} Hz is unsupported; choose ${supportedSampleRatesHz.sorted().joinToString()} Hz"
         }
+        requireSettings(config.sampleRateHz, config.basebandFilterHz, config.lnaGainDb, config.vgaGainDb)
     }
 
     fun requireValid(config: SweepConfig) {
@@ -99,6 +113,19 @@ object RadioLimits {
         requireSupported(config.sampleRateHz in supportedSampleRatesHz) {
             "Sample rate ${config.sampleRateHz} Hz is unsupported; choose ${supportedSampleRatesHz.sorted().joinToString()} Hz"
         }
+        requireSettings(config.sampleRateHz, config.basebandFilterHz, config.lnaGainDb, config.vgaGainDb)
+    }
+
+    private fun requireSettings(sampleRateHz: Int, basebandFilterHz: Int, lnaGainDb: Int, vgaGainDb: Int) {
+        val validFilter = basebandFilterHz == 0 || when (sampleRateHz) {
+            2_000_000 -> basebandFilterHz == 1_750_000
+            4_000_000 -> basebandFilterHz == 3_500_000
+            8_000_000 -> basebandFilterHz == 7_000_000
+            else -> false
+        }
+        requireSupported(validFilter) { "Baseband filter $basebandFilterHz Hz is invalid for sample rate $sampleRateHz Hz" }
+        requireSupported(lnaGainDb in 0..40 && lnaGainDb % 8 == 0) { "LNA gain must be 0–40 dB in 8 dB steps" }
+        requireSupported(vgaGainDb in 0..62 && vgaGainDb % 2 == 0) { "VGA gain must be 0–62 dB in 2 dB steps" }
     }
 
     private inline fun requireSupported(value: Boolean, message: () -> String) {

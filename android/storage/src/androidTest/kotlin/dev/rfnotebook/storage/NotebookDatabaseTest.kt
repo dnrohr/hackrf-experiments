@@ -4,15 +4,23 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.room.testing.MigrationTestHelper
 import java.util.UUID
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
+import org.junit.Rule
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class NotebookDatabaseTest {
+    @get:Rule
+    val migrationHelper = MigrationTestHelper(
+        InstrumentationRegistry.getInstrumentation(),
+        NotebookDatabase::class.java,
+    )
     private lateinit var database: NotebookDatabase
 
     @Before
@@ -88,6 +96,25 @@ class NotebookDatabaseTest {
         assertEquals(24, versions.last().lnaGainDb)
         assertEquals("equipment:suffix:v1", database.notebookDao().survey(first.surveyId)!!.equipmentProfileVersionId)
         assertEquals("equipment:suffix:v2", database.notebookDao().survey(second.surveyId)!!.equipmentProfileVersionId)
+    }
+
+    @Test
+    fun migrationFromVersionOnePreservesRadioAndAddsDisconnectedState() {
+        val name = "migration-${UUID.randomUUID()}"
+        migrationHelper.createDatabase(name, 1).apply {
+            execSQL(
+                "INSERT INTO radio_devices (id, model, serialSuffix, hardwareRevision, firmwareVersion, usbApiVersion, firstSeenAtEpochMs, lastSeenAtEpochMs) VALUES ('radio', 'HackRF One', 'suffix', 'r9', 'fw', '1.10', 1, 2)",
+            )
+            close()
+        }
+
+        migrationHelper.runMigrationsAndValidate(name, 2, true, NotebookDatabase.MIGRATION_1_2).use { migrated ->
+            migrated.query("SELECT connectionState, connectionRevision FROM radio_devices WHERE id = 'radio'").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals("DISCONNECTED", cursor.getString(0))
+                assertEquals(0L, cursor.getLong(1))
+            }
+        }
     }
 
     private fun radio() = RadioDeviceEntity("radio", "HackRF One", "suffix", "r9", "fw", "api", 1, 1)

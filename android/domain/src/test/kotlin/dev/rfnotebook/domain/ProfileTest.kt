@@ -33,6 +33,13 @@ class ProfileTest {
     }
 
     @Test
+    fun measuredSampleRatesHaveExplicitMatchingFilters() {
+        assertEquals(1_750_000, EquipmentProfile.recommendedBasebandFilterHz(2_000_000))
+        assertEquals(3_500_000, EquipmentProfile.recommendedBasebandFilterHz(4_000_000))
+        assertEquals(7_000_000, EquipmentProfile.recommendedBasebandFilterHz(8_000_000))
+    }
+
+    @Test
     fun editingReferencedEquipmentCreatesANewVersion() {
         val edited = equipment.edit(
             referencedBySurvey = true,

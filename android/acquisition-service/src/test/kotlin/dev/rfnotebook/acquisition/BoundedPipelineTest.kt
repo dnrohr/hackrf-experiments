@@ -50,4 +50,14 @@ class BoundedPipelineTest {
         assertFalse(denied.canStart)
         assertTrue(allowed.canStart)
     }
+
+    @Test fun `shutdown counts queued units that cannot be drained`() {
+        val queue = BoundedStage<Int>(PipelineStage.PERSISTENCE, 3)
+        queue.offer(1)
+        queue.offer(2)
+
+        assertEquals(2, queue.discardPending())
+        assertEquals(0, queue.depth)
+        assertEquals(2L, queue.droppedCount)
+    }
 }

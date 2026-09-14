@@ -117,6 +117,20 @@ interface NotebookDao {
     @Query("SELECT * FROM radio_devices WHERE id = :id")
     suspend fun radioDevice(id: String): RadioDeviceEntity?
 
+    @Query("UPDATE radio_devices SET connectionState = :state, connectionRevision = :revision WHERE id = :radioDeviceId AND connectionRevision = :expectedRevision")
+    suspend fun compareAndSetConnectionState(radioDeviceId: String, expectedRevision: Long, state: String, revision: Long): Int
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertConnectionStateEvent(event: ConnectionStateEventEntity)
+
+    @Transaction
+    suspend fun persistConnectionTransition(expectedRevision: Long, device: RadioDeviceEntity, event: ConnectionStateEventEntity) {
+        check(compareAndSetConnectionState(device.id, expectedRevision, device.connectionState, device.connectionRevision) == 1) {
+            "Radio ${device.id} connection state changed concurrently"
+        }
+        insertConnectionStateEvent(event)
+    }
+
     @Query("SELECT * FROM band_profiles WHERE retiredAtEpochMs IS NULL ORDER BY name, version DESC")
     suspend fun activeBandProfiles(): List<BandProfileEntity>
 

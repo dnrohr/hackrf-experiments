@@ -33,4 +33,26 @@ class ReceiveOnlyContractTest {
         assertFalse(result.compatible)
         assertTrue(result.explanation.contains("unsupported"))
     }
+
+    @Test fun `default radio settings keep both powered features off`() {
+        val rx = RxConfig(915_000_000, 4_000_000)
+        val sweep = SweepConfig(902_000_000, 928_000_000, 100_000, 4_000_000)
+
+        assertFalse(rx.rfAmpEnabled)
+        assertFalse(rx.antennaPowerEnabled)
+        assertFalse(sweep.rfAmpEnabled)
+        assertFalse(sweep.antennaPowerEnabled)
+    }
+
+    @Test(expected = RadioException::class)
+    fun `invalid hardware gain step is rejected`() {
+        RadioLimits.requireValid(SweepConfig(902_000_000, 928_000_000, 100_000, 4_000_000, lnaGainDb = 10))
+    }
+
+    @Test(expected = RadioException::class)
+    fun `filter that does not match sample rate is rejected`() {
+        RadioLimits.requireValid(
+            SweepConfig(902_000_000, 928_000_000, 100_000, 2_000_000, basebandFilterHz = 3_500_000),
+        )
+    }
 }

@@ -2,6 +2,7 @@ package dev.rfnotebook.storage
 
 import dev.rfnotebook.domain.EquipmentProfile
 import dev.rfnotebook.domain.FrequencyRange
+import dev.rfnotebook.domain.RadioCapabilities
 import dev.rfnotebook.domain.StarterBandProfiles
 import java.util.UUID
 
@@ -12,6 +13,11 @@ data class SurveyLaunch(
     val endFrequencyHz: Long,
     val binWidthHz: Int,
     val sampleRateHz: Int,
+    val basebandFilterHz: Int,
+    val lnaGainDb: Int,
+    val vgaGainDb: Int,
+    val rfAmpEnabled: Boolean,
+    val antennaPowerEnabled: Boolean,
 )
 
 data class SurveySummary(
@@ -35,6 +41,11 @@ class NotebookSetupRepository(private val dao: NotebookDao) {
             ranges.maxOf { it.endHz },
             band.binWidthHz.toInt(),
             equipment.sampleRateHz,
+            equipment.basebandFilterHz,
+            equipment.lnaGainDb,
+            equipment.vgaGainDb,
+            equipment.rfAmpEnabled,
+            equipment.antennaPowerEnabled,
         )
     }
 
@@ -48,6 +59,16 @@ class NotebookSetupRepository(private val dao: NotebookDao) {
         sampleRateHz: Int = 4_000_000,
         lnaGainDb: Int = 16,
         vgaGainDb: Int = 16,
+        antennaName: String = "Uncalibrated antenna",
+        adapterNotes: String = "",
+        equipmentNotes: String = "Relative observations only; this profile is not calibrated.",
+        bandStartHz: Long? = null,
+        bandEndHz: Long? = null,
+        binWidthHz: Long = 100_000,
+        targetRevisitMs: Long = 1_000,
+        thresholdSnrDb: Float = 8f,
+        minimumBandwidthHz: Long = 100_000,
+        excludedRanges: List<FrequencyRange> = emptyList(),
     ): SurveyLaunch {
         require(serialSuffix.isNotBlank())
         val radioId = "radio:$serialSuffix"
@@ -68,8 +89,13 @@ class NotebookSetupRepository(private val dao: NotebookDao) {
         val requestedEquipment = EquipmentProfile.conservativeDefault(profileId, radioId).copy(
             createdAtEpochMs = nowEpochMs,
             sampleRateHz = sampleRateHz,
+            basebandFilterHz = EquipmentProfile.recommendedBasebandFilterHz(sampleRateHz),
             lnaGainDb = lnaGainDb,
             vgaGainDb = vgaGainDb,
+            antennaName = antennaName.ifBlank { "Uncalibrated antenna" },
+            adapterNotes = adapterNotes,
+            notes = equipmentNotes,
+            antennaBands = if (bandStartHz != null && bandEndHz != null) listOf(FrequencyRange(bandStartHz, bandEndHz)) else emptyList(),
         )
         val priorEquipment = dao.activeEquipmentProfiles().filter { it.profileId == profileId }.maxByOrNull { it.version }
         val equipmentEntity = if (priorEquipment == null) {
@@ -81,13 +107,37 @@ class NotebookSetupRepository(private val dao: NotebookDao) {
             requestedEquipment.copy(version = priorEquipment.version + 1).toEntity("$profileId:v${priorEquipment.version + 1}")
         }
         dao.insertEquipmentProfile(equipmentEntity)
-        StarterBandProfiles.create(profileId).forEach { profile ->
+        StarterBandProfiles.create(profileId).map { profile ->
+            if (profile.name == bandName && bandStartHz != null && bandEndHz != null) profile.copy(
+                ranges = listOf(FrequencyRange(bandStartHz, bandEndHz)),
+                binWidthHz = binWidthHz,
+                targetRevisitMs = targetRevisitMs,
+                thresholdSnrDb = thresholdSnrDb,
+                minimumBandwidthHz = minimumBandwidthHz,
+                excludedRanges = excludedRanges,
+            ) else profile
+        }.forEach { profile ->
+            if (profile.name == bandName) {
+                val errors = profile.validate(
+                    RadioCapabilities(1_000_000, 6_000_000_000, setOf(2_000_000, 4_000_000, 8_000_000)),
+                    requestedEquipment,
+                )
+                require(errors.isEmpty()) { errors.joinToString("; ") { it.explanation } }
+            }
             val bandProfileId = "${profile.id}:$serialSuffix"
             val priorBand = dao.activeBandProfiles().filter { it.profileId == bandProfileId }.maxByOrNull { it.version }
+            val desiredRanges = profile.ranges.mapIndexed { index, range ->
+                BandRangeEntity("", "INCLUDE", index, range.startHz, range.endHz)
+            } + profile.excludedRanges.mapIndexed { index, range ->
+                BandRangeEntity("", "EXCLUDE", index, range.startHz, range.endHz)
+            }
+            val priorRanges = priorBand?.let { dao.bandRanges(it.versionId) }.orEmpty()
             val reuse = priorBand?.takeIf {
                 it.equipmentProfileVersionId == equipmentEntity.versionId &&
                     it.binWidthHz == profile.binWidthHz && it.targetRevisitMs == profile.targetRevisitMs &&
-                    it.thresholdSnrDb == profile.thresholdSnrDb && it.minimumBandwidthHz == profile.minimumBandwidthHz
+                    it.thresholdSnrDb == profile.thresholdSnrDb && it.minimumBandwidthHz == profile.minimumBandwidthHz &&
+                    priorRanges.map { range -> Triple(range.kind, range.startHz, range.endHz) } ==
+                    desiredRanges.map { range -> Triple(range.kind, range.startHz, range.endHz) }
             }
             val bandEntity = reuse ?: run {
                 priorBand?.let { dao.retireBandProfile(it.versionId, nowEpochMs) }
@@ -110,6 +160,8 @@ class NotebookSetupRepository(private val dao: NotebookDao) {
             dao.insertBandProfile(bandEntity)
             dao.insertBandRanges(profile.ranges.mapIndexed { index, range ->
                 BandRangeEntity(bandEntity.versionId, "INCLUDE", index, range.startHz, range.endHz)
+            } + profile.excludedRanges.mapIndexed { index, range ->
+                BandRangeEntity(bandEntity.versionId, "EXCLUDE", index, range.startHz, range.endHz)
             })
         }
         val band = dao.activeBandProfiles().first { it.name == bandName }
@@ -147,6 +199,11 @@ class NotebookSetupRepository(private val dao: NotebookDao) {
             ranges.maxOf { it.endHz },
             band.binWidthHz.toInt(),
             equipmentEntity.sampleRateHz,
+            equipmentEntity.basebandFilterHz,
+            equipmentEntity.lnaGainDb,
+            equipmentEntity.vgaGainDb,
+            equipmentEntity.rfAmpEnabled,
+            equipmentEntity.antennaPowerEnabled,
         )
     }
 

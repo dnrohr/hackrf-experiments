@@ -82,6 +82,13 @@ data class EquipmentProfile(
     }
 
     companion object {
+        fun recommendedBasebandFilterHz(sampleRateHz: Int): Int = when (sampleRateHz) {
+            2_000_000 -> 1_750_000
+            4_000_000 -> 3_500_000
+            8_000_000 -> 7_000_000
+            else -> error("No measured baseband filter for sample rate $sampleRateHz Hz")
+        }
+
         fun conservativeDefault(id: String, radioDeviceId: String) = EquipmentProfile(
             id = id,
             name = "Conservative receive-only",
@@ -91,7 +98,7 @@ data class EquipmentProfile(
             antennaBands = emptyList(),
             adapterNotes = "",
             sampleRateHz = 4_000_000,
-            basebandFilterHz = 3_500_000,
+            basebandFilterHz = recommendedBasebandFilterHz(4_000_000),
             lnaGainDb = 16,
             vgaGainDb = 16,
             rfAmpEnabled = false,
@@ -170,6 +177,15 @@ data class BandProfile(
             errors += BandValidationError(BandValidationCode.EXCLUSION_OUTSIDE_RANGE, "Every exclusion must be inside one survey range")
         }
         if (binWidthHz <= 0) errors += BandValidationError(BandValidationCode.INVALID_BIN_WIDTH, "Bin width must be positive")
+        if (binWidthHz > 0 && (equipment.sampleRateHz % binWidthHz != 0L ||
+                equipment.sampleRateHz / binWidthHz !in 4L..1_024L ||
+                equipment.sampleRateHz / binWidthHz % 4 != 0L)
+        ) {
+            errors += BandValidationError(
+                BandValidationCode.INVALID_RESOLUTION,
+                "Bin width must divide the sample rate into 4–1024 bins, in a multiple of four",
+            )
+        }
         if (targetRevisitMs <= 0) errors += BandValidationError(BandValidationCode.INVALID_REVISIT, "Revisit target must be positive")
         if (!thresholdSnrDb.isFinite() || thresholdSnrDb <= 0f) {
             errors += BandValidationError(BandValidationCode.INVALID_THRESHOLD, "Threshold must be finite and positive")
@@ -227,6 +243,7 @@ enum class BandValidationCode {
     OVERLAPPING_EXCLUSIONS,
     EXCLUSION_OUTSIDE_RANGE,
     INVALID_BIN_WIDTH,
+    INVALID_RESOLUTION,
     INVALID_REVISIT,
     INVALID_THRESHOLD,
     INVALID_MINIMUM_BANDWIDTH,
