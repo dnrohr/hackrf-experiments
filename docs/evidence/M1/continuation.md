@@ -10,7 +10,7 @@ Updated: 2026-09-14
 - The debug app was automatically uninstalled by the connected-test task and
   then reinstalled, so its device-local survey database is now cleared. The
   completed survey evidence remains in the repository's committed report.
-- Work is committed directly on `main`; latest commit `d316fb1` is pushed to
+- Work is committed directly on `main`; latest commit `ffe8638` is pushed to
   `origin/main`.
 
 ## Latest completed evidence
