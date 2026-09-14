@@ -1,6 +1,6 @@
 # M1 hardware report
 
-Status: Pending production survey gate
+Status: Production survey recorded; recovery cases pending
 
 ## Connected software validation
 
@@ -28,18 +28,44 @@ Status: Pending production survey gate
 This is compatibility-test evidence only. It does not claim the M1 production
 survey gate, sustained 30-minute behavior, or detach/recovery acceptance.
 
-## Required production gate
+## Production survey observation
 
-Still to record with the HackRF attached directly to the phone:
+- Date: 2026-09-14
+- Phone: Google Pixel 8a, Android 17 (SDK 37)
+- HackRF: Great Scott Gadgets HackRF One; UI-reported firmware 2026.01.3,
+  USB API 1.10; full serial omitted
+- Profile: 902–928 MHz, 100 kHz bins, 2 MS/s, LNA 16 dB, VGA 16 dB, RF
+  amplifier off, antenna-port power off
+- Runtime: 53 minutes 22 seconds shown by the active-survey screen; the
+  private monitor recorded 30 minutes of screen-off service presence
+- GPS: fix reported at ±8.2 m with age 0 seconds during final active-screen
+  observation; route distance shown as 0.09 km
+- Persistence: 835,920 aggregates reported persisted before orderly Stop
+- Final observed health before Stop: native/processing/persistence queues
+  0/0/0; malformed frames 0; overruns 5; total drops 411,011; battery 84%;
+  thermal status 0; approximately 25 GB remained free on the phone
+- Foreground behavior: notification remained present with three actions while
+  the screen was off; monitor samples recorded `Dozing` and service present
+  throughout the 30-minute interval
+- Finalization: the app’s visible Stop control was used after unlocking; the
+  foreground service then disappeared. A post-run Room/UI readback found the
+  survey still listed as recoverable/interrupted rather than `COMPLETE`; this
+  is recorded as a finalization defect and is not promoted to an acceptance
+  claim.
 
-- HackRF model, hardware revision, firmware, USB API, and redacted suffix
+The run demonstrates screen-off operation and visible loss accounting, but it is
+not a clean performance gate because the drop count was nonzero. The exact
+physical cable/adapter topology, pause/resume, detach/reattach, process-death,
+queue-pressure, and low-storage cases remain pending.
+
+## Remaining production gate evidence
+
+Still to record or verify:
+
 - Exact USB cable/adapter or powered-hub topology
-- 902–928 MHz profile settings and measured cycle/USB rates
-- 30-minute screen-off start/end timestamps
-- location coverage and accuracy summary
-- queue high-water marks, all drop/overrun/malformed/gap counters
-- battery and thermal observations
-- Pause/Resume/Stop, detach/reattach, process-death, pressure, and low-storage
+- Hardware revision and measured sweep-cycle rate
+- Queue high-water marks and persisted final gap records
+- Pause/Resume, detach/reattach, process-death, pressure, and low-storage
   results
 
 No hardware acceptance criterion is claimed by this placeholder.
