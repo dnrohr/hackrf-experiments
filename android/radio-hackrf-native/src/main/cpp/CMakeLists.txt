@@ -43,6 +43,7 @@ target_link_libraries(libusb_android PRIVATE log)
 set(HACKRF_DIR "${hackrf_upstream_SOURCE_DIR}/host/libhackrf/src")
 file(READ "${HACKRF_DIR}/hackrf.c" HACKRF_SOURCE)
 set(HACKRF_OPEN_MARKER "int ADDCALL hackrf_open(hackrf_device** device)")
+set(HACKRF_INIT_MARKER "libusb_error = libusb_init(&g_libusb_context);")
 set(HACKRF_ANDROID_OPEN [=[
 int hackrf_android_open_by_fd(int fd, hackrf_device** device)
 {
@@ -60,11 +61,26 @@ int hackrf_android_open_by_fd(int fd, hackrf_device** device)
 }
 
 ]=])
+set(HACKRF_ANDROID_INIT [=[
+#ifdef DISABLE_USB_DEVICE_DISCOVERY
+	struct libusb_init_option options[1];
+	options[0].option = LIBUSB_OPTION_NO_DEVICE_DISCOVERY;
+	options[0].value.ival = 1;
+	libusb_error = libusb_init_context(&g_libusb_context, options, 1);
+#else
+	libusb_error = libusb_init(&g_libusb_context);
+#endif
+]=])
 string(FIND "${HACKRF_SOURCE}" "${HACKRF_OPEN_MARKER}" HACKRF_OPEN_POSITION)
 if(HACKRF_OPEN_POSITION EQUAL -1)
     message(FATAL_ERROR "Pinned libhackrf source no longer contains the Android open patch point")
 endif()
 string(REPLACE "${HACKRF_OPEN_MARKER}" "${HACKRF_ANDROID_OPEN}${HACKRF_OPEN_MARKER}" HACKRF_PATCHED_SOURCE "${HACKRF_SOURCE}")
+string(FIND "${HACKRF_PATCHED_SOURCE}" "${HACKRF_INIT_MARKER}" HACKRF_INIT_POSITION)
+if(HACKRF_INIT_POSITION EQUAL -1)
+    message(FATAL_ERROR "Pinned libhackrf source no longer contains the Android init patch point")
+endif()
+string(REPLACE "${HACKRF_INIT_MARKER}" "${HACKRF_ANDROID_INIT}" HACKRF_PATCHED_SOURCE "${HACKRF_PATCHED_SOURCE}")
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/hackrf_android.c" "${HACKRF_PATCHED_SOURCE}")
 
 add_library(hackrf_android STATIC "${CMAKE_CURRENT_BINARY_DIR}/hackrf_android.c")

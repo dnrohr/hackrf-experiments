@@ -65,7 +65,7 @@ class MapPrototypeView(context: Context, observations: List<Observation>) : Fram
     override fun onDetachedFromWindow() { mapView.onPause(); mapView.onStop(); mapView.onDestroy(); super.onDetachedFromWindow() }
 
     companion object {
-        const val DEMO_STYLE = "https://demotiles.maplibre.org/style.json"
+        const val DEMO_STYLE = "https://tiles.openfreemap.org/styles/liberty"
         private const val ROUTE_SOURCE = "m0-route-source"
         private const val OBSERVATION_SOURCE = "m0-observation-source"
         private const val ROUTE_LAYER = "m0-route"

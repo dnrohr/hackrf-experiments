@@ -9,6 +9,6 @@
         <service
             android:name=".AcquisitionSpikeService"
             android:exported="false"
-            android:foregroundServiceType="connectedDevice|location" />
+            android:foregroundServiceType="connectedDevice|location|shortService" />
     </application>
 </manifest>

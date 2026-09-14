@@ -10,15 +10,18 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.hardware.usb.UsbManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.os.Build
 import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 import dev.rfnotebook.radio.api.RxConfig
 import dev.rfnotebook.radio.api.SampleSink
 import dev.rfnotebook.radio.api.SweepConfig
@@ -26,7 +29,10 @@ import dev.rfnotebook.radio.api.SweepSink
 import dev.rfnotebook.radio.hackrf.AndroidHackrfRadio
 import dev.rfnotebook.radio.hackrf.NativeRadioSession
 import dev.rfnotebook.signal.processing.HackrfSweepProcessor
+import dev.rfnotebook.signal.processing.SweepFrameParser
+import java.io.File
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.math.round
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -62,11 +68,16 @@ object AcquisitionSpikeStatus {
     internal fun update(value: AcquisitionSpikeState) { mutable.value = value }
 }
 
+internal fun hasAnyLocationPermission(coarseGranted: Boolean, fineGranted: Boolean): Boolean =
+    coarseGranted || fineGranted
+
 class AcquisitionSpikeService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var acquisitionJob: Job? = null
     @Volatile private var latestLocation: Location? = null
     @Volatile private var stopReason = "Stopped by user"
+    private var foregroundReady = false
+    private var detachReceiverRegistered = false
     private val locationManager by lazy { getSystemService(LocationManager::class.java) }
     private val locationListener = LocationListener { latestLocation = it }
     private val detachReceiver = object : BroadcastReceiver() {
@@ -81,16 +92,6 @@ class AcquisitionSpikeService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        getSystemService(NotificationManager::class.java).createNotificationChannel(
-            NotificationChannel(CHANNEL, "M0 acquisition", NotificationManager.IMPORTANCE_LOW),
-        )
-        ContextCompat.registerReceiver(
-            this,
-            detachReceiver,
-            IntentFilter(UsbManager.ACTION_USB_DEVICE_DETACHED),
-            ContextCompat.RECEIVER_EXPORTED,
-        )
-        startForeground(NOTIFICATION_ID, notification("Preparing receive-only test"))
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -100,6 +101,13 @@ class AcquisitionSpikeService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        ensureBootstrapForeground()
+        if (!hasLocationPermission()) {
+            AcquisitionSpikeStatus.update(AcquisitionSpikeState("error", detail = LOCATION_PERMISSION_REQUIRED))
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
+        promoteAcquisitionForeground()
         if (acquisitionJob?.isActive != true) {
             val rate = intent?.getIntExtra(EXTRA_SAMPLE_RATE_HZ, DEFAULT_SAMPLE_RATE_HZ) ?: DEFAULT_SAMPLE_RATE_HZ
             val sweep = intent?.getBooleanExtra(EXTRA_SWEEP, false) ?: false
@@ -108,10 +116,47 @@ class AcquisitionSpikeService : Service() {
         return START_NOT_STICKY
     }
 
+    private fun ensureBootstrapForeground() {
+        if (foregroundReady) return
+        getSystemService(NotificationManager::class.java).createNotificationChannel(
+            NotificationChannel(CHANNEL, "M0 acquisition", NotificationManager.IMPORTANCE_LOW),
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            ServiceCompat.startForeground(
+                this,
+                NOTIFICATION_ID,
+                notification("Checking acquisition permissions"),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SHORT_SERVICE,
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification("Checking acquisition permissions"))
+        }
+        foregroundReady = true
+    }
+
+    private fun promoteAcquisitionForeground() {
+        ServiceCompat.startForeground(
+            this,
+            NOTIFICATION_ID,
+            notification("Preparing receive-only test"),
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION,
+        )
+        if (detachReceiverRegistered) return
+        ContextCompat.registerReceiver(
+            this,
+            detachReceiver,
+            IntentFilter(UsbManager.ACTION_USB_DEVICE_DETACHED),
+            ContextCompat.RECEIVER_EXPORTED,
+        )
+        detachReceiverRegistered = true
+    }
+
     private suspend fun runReceiveProbe(rate: Int, sweep: Boolean) {
         var session: NativeRadioSession? = null
         val sweepFrames = AtomicLong()
         val malformedSweepBlocks = AtomicLong()
+        var sweepFixtureCaptured = false
         try {
             AcquisitionSpikeStatus.update(AcquisitionSpikeState("opening", rate))
             val radio = AndroidHackrfRadio(this)
@@ -128,6 +173,17 @@ class AcquisitionSpikeService : Service() {
                         val processed = HackrfSweepProcessor.process(raw, rate, SWEEP_BIN_WIDTH_HZ)
                         sweepFrames.addAndGet(processed.frames.size.toLong())
                         malformedSweepBlocks.addAndGet(processed.malformedBlocks.toLong())
+                        if (!sweepFixtureCaptured) {
+                            processed.frames.firstOrNull()?.let { frame ->
+                                val sanitized = frame.copy(
+                                    bins = frame.bins.map { it.copy(powerDbfs = round(it.powerDbfs)) },
+                                )
+                                getExternalFilesDir(null)?.let { directory ->
+                                    File(directory, SWEEP_FIXTURE_FILE).writeBytes(SweepFrameParser.encode(sanitized))
+                                    sweepFixtureCaptured = true
+                                }
+                            }
+                        }
                     },
                 )
             } else {
@@ -186,10 +242,15 @@ class AcquisitionSpikeService : Service() {
     private fun startLocationUpdates() {
         val fine = ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val coarse = ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        require(fine || coarse) { "Location permission is required for the combined USB/location probe" }
+        require(hasAnyLocationPermission(coarse, fine)) { LOCATION_PERMISSION_REQUIRED }
         val provider = if (fine) LocationManager.GPS_PROVIDER else LocationManager.NETWORK_PROVIDER
         locationManager.requestLocationUpdates(provider, STATS_INTERVAL_MS, 0f, locationListener, Looper.getMainLooper())
     }
+
+    private fun hasLocationPermission(): Boolean = hasAnyLocationPermission(
+        ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED,
+        ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED,
+    )
 
     private fun notification(text: String): Notification {
         val stopIntent = Intent(this, AcquisitionSpikeService::class.java).setAction(ACTION_STOP)
@@ -206,7 +267,7 @@ class AcquisitionSpikeService : Service() {
     override fun onDestroy() {
         acquisitionJob?.cancel()
         scope.cancel()
-        runCatching { unregisterReceiver(detachReceiver) }
+        if (detachReceiverRegistered) runCatching { unregisterReceiver(detachReceiver) }
         if (AcquisitionSpikeStatus.state.value.phase != "error") {
             AcquisitionSpikeStatus.update(AcquisitionSpikeState(detail = stopReason))
         }
@@ -226,6 +287,8 @@ class AcquisitionSpikeService : Service() {
         private const val SWEEP_START_FREQUENCY_HZ = 88_000_000L
         private const val SWEEP_END_FREQUENCY_HZ = 108_000_000L
         private const val SWEEP_BIN_WIDTH_HZ = 100_000
+        private const val SWEEP_FIXTURE_FILE = "m0-sweep-frame.bin"
         private const val STATS_INTERVAL_MS = 500L
+        private const val LOCATION_PERMISSION_REQUIRED = "Location permission is required for the combined USB/location probe"
     }
 }

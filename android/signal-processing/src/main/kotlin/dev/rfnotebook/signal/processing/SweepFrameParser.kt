@@ -10,6 +10,19 @@ data class ParsedSweepFrame(val lowFrequencyHz: Long, val highFrequencyHz: Long,
 object SweepFrameParser {
     const val HEADER_BYTES = 16
 
+    fun encode(frame: ParsedSweepFrame): ByteArray {
+        require(frame.lowFrequencyHz in 1_000_000 until frame.highFrequencyHz && frame.highFrequencyHz <= 6_000_000_000L) {
+            "Invalid sweep range"
+        }
+        require(frame.bins.isNotEmpty()) { "Sweep frame has no bins" }
+        require(frame.bins.all { it.powerDbfs.isFinite() }) { "Non-finite power bin" }
+        val buffer = ByteBuffer.allocate(HEADER_BYTES + frame.bins.size * Float.SIZE_BYTES).order(ByteOrder.LITTLE_ENDIAN)
+        buffer.putLong(frame.lowFrequencyHz)
+        buffer.putLong(frame.highFrequencyHz)
+        frame.bins.forEach { buffer.putFloat(it.powerDbfs) }
+        return buffer.array()
+    }
+
     fun parse(frame: ByteArray): ParsedSweepFrame {
         require(frame.size >= HEADER_BYTES && (frame.size - HEADER_BYTES) % Float.SIZE_BYTES == 0) {
             "Malformed sweep frame length: ${frame.size}"

@@ -9,7 +9,7 @@ import org.maplibre.android.offline.OfflineRegionStatus
 import org.maplibre.android.offline.OfflineTilePyramidRegionDefinition
 
 object OfflineRegionSpike {
-    private val metadata = "rf-notebook-m0-region-v1".encodeToByteArray()
+    private val metadata = "rf-notebook-m0-region-v2".encodeToByteArray()
 
     fun downloadOrReopen(context: Context, callback: (String) -> Unit) {
         val manager = OfflineManager.getInstance(context)

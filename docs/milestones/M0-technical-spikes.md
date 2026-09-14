@@ -1,6 +1,6 @@
 # M0 — Technical spikes
 
-- Status: Needs evidence
+- Status: Complete
 - Depends on: None
 - Produces: Feasibility evidence, Android skeleton, foundational ADRs
 - Next milestone: M1 — Radio and survey foundation
@@ -136,17 +136,17 @@ and roadmap only after the decision is accepted.
 
 - [x] The Android project builds from a clean checkout using documented commands.
 - [x] Unit tests and lint run without physical hardware.
-- [ ] The target phone grants USB permission and reads correct HackRF identity.
+- [x] The target phone grants USB permission and reads correct HackRF identity.
 - [x] No application-facing native or Kotlin API exposes transmit behavior.
-- [ ] At least 2 and 4 MS/s sustain for five minutes with zero unexplained data
+- [x] At least 2 and 4 MS/s sustain for five minutes with zero unexplained data
   loss; 8 MS/s has measured pass/fail evidence.
-- [ ] A 15-minute screen-off run preserves USB RX, location, and notification
+- [x] A 15-minute screen-off run preserves USB RX, location, and notification
   controls or documents a platform constraint with an accepted response.
-- [ ] USB detach and cancellation close the device without a process restart.
-- [ ] Sweep frames produce verified frequency/power observations.
-- [ ] Stored observations render on a map with accuracy and an offline region.
+- [x] USB detach and cancellation close the device without a process restart.
+- [x] Sweep frames produce verified frequency/power observations.
+- [x] Stored observations render on a map with accuracy and an offline region.
 - [x] All five foundational decisions have accepted ADRs.
-- [ ] Benchmark and go/no-go reports identify the exact tested hardware and
+- [x] Benchmark and go/no-go reports identify the exact tested hardware and
   software configuration.
 - [x] `scripts/Test-Planning.ps1` passes after roadmap and handoff updates.
 
@@ -180,30 +180,38 @@ physical-device criterion cannot be satisfied by an emulator.
 
 Complete this section before marking M0 complete:
 
-- Commit and branch: single local M0 commit on `main`; publication withheld
-  until all M0 gates pass, per the delivery workflow.
+- Commit and branch: M0 completion commit on local `main`; publication is
+  withheld because no push was requested.
 - Delivered behavior: Eight-module Kotlin/Compose/NDK scaffold; receive-only
   API plus source/ELF guards; checksum-pinned upstream libusb/libhackrf Android
   builds; Android file-descriptor open; validated RX configuration;
   raw sweep-header/DFT processor; debug hardware identity/throughput/drop/error
   UI; foreground RX/sweep plus location service with detach cleanup and a
-  visible Stop action; persisted synthetic MapLibre route/accuracy/strength
-  overlays and an offline download/reopen action.
+  visible Stop action; permission-neutral foreground bootstrap for denial races;
+  persisted synthetic MapLibre route/accuracy/strength overlays; and a versioned
+  offline download/reopen action using the OpenFreeMap Liberty style.
 - Validation summary: `gradlew.bat lint test assembleDebug`,
   `scripts/Test-ReceiveOnly.ps1`, `scripts/Test-NativeExports.ps1`, and
-  `scripts/Test-Planning.ps1` pass locally.
-  `:app-ui:connectedDebugAndroidTest` fails with `No connected devices!`, which
-  accurately preserves the unmet physical-device gate.
-- Hardware evidence: `docs/evidence/M0/benchmark-report.md` records the missing
-  target phone/topology/HackRF and the exact remaining procedure; no emulator is
-  presented as evidence.
+  `scripts/Test-Planning.ps1` pass locally. Direct Pixel instrumentation passes
+  USB-host, location-denial foreground startup, and activity-task removal gates.
+  The Gradle connected task's Wi-Fi ADB run records every test and the merged
+  suite as passed but exits `1` because UTP compares the raw colon-bearing ADB
+  serial with the engine's URL-escaped device key. The unmodified task passes
+  over direct USB ADB; test-failure ignoring remains disabled.
+- Hardware evidence: `docs/evidence/M0/benchmark-report.md` records Pixel 8a / API
+  37 and HackRF One evidence for identity, permission grant/denial, 2/4/8 MS/s,
+  15-minute screen-off RX/location, Stop, detach/reattach, task removal, sweep
+  parsing, Windows range cross-check, and offline mapping. The actual path had
+  no hub or charger: the phone directly bus-powered the HackRF through an
+  unmarked USB-C/USB-A adapter and unmarked USB-A/Micro-USB-B data cable. No
+  emulator result is presented as physical evidence.
 - ADRs: ADR 001 through ADR 005 accepted for project/toolchain, native
   packaging, Android USB descriptor integration, service lifecycle, and maps.
-- Known limitations: Real device identity/permission, throughput, detach,
-  screen-off location, sweep fixture cross-check, and offline-map reopen all
-  require the named physical setup. M0 uses a one-slot latest-buffer handoff and
-  surfaces overwritten buffers; M1 must replace it with the production bounded
+- Known limitations: CPU load was not captured. A network-disabled offline-map
+  reopen was not practical, although the completed region's resource count and
+  normal reopen path passed. M0 uses a one-slot latest-buffer handoff and
+  surfaces every overwrite; M1 must replace it with production bounded
   multistage acquisition/processing queues.
-- M1 starting point and cautions: Do not begin M1. Complete all pending physical
-  M0 evidence, update go/no-go outcomes, then check the remaining acceptance
-  criteria and set M0 complete/M1 ready only if the gate passes.
+- M1 starting point and cautions: M1 may begin after the coherent M0 completion
+  commit. Replace the one-slot spike handoff with production bounded queues,
+  preserve explicit gap accounting, and retain the receive-only boundary.

@@ -18,4 +18,27 @@ class SweepFrameParserTest {
 
     @Test(expected = IllegalArgumentException::class)
     fun `rejects incomplete frames`() { SweepFrameParser.parse(ByteArray(19)) }
+
+    @Test fun `encodes a processed frame for a sanitized fixture round trip`() {
+        val source = ParsedSweepFrame(
+            99_000_000,
+            99_500_000,
+            listOf(SweepObservation(99_000_000, -72.5f), SweepObservation(99_250_000, -41.25f)),
+        )
+
+        val parsed = SweepFrameParser.parse(SweepFrameParser.encode(source))
+
+        assertEquals(source, parsed)
+    }
+
+    @Test fun `parses sanitized Pixel 8a HackRF sweep fixture`() {
+        val bytes = requireNotNull(javaClass.getResourceAsStream("/fixtures/m0-hackrf-sweep-frame.bin")).use { it.readBytes() }
+
+        val parsed = SweepFrameParser.parse(bytes)
+
+        assertEquals(88_000_000L, parsed.lowFrequencyHz)
+        assertEquals(88_500_000L, parsed.highFrequencyHz)
+        assertEquals(5, parsed.bins.size)
+        assertEquals(listOf(-87f, -69f, -64f, -63f, -69f), parsed.bins.map { it.powerDbfs })
+    }
 }

@@ -87,7 +87,9 @@ if ($failures.Count -eq 0) {
         if ($text -notmatch '(?m)^###\s+\S') {
             Add-Failure "$relativePath has no actionable task subsections."
         }
-        if ($text -notmatch '(?m)^- \[ \]\s+\S') {
+        # Completed milestones retain checkable acceptance criteria; the mark
+        # records state and must not make the checklist structurally invalid.
+        if ($text -notmatch '(?m)^- \[[ xX]\]\s+\S') {
             Add-Failure "$relativePath has no checkable acceptance criteria."
         }
 

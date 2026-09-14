@@ -25,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -40,6 +41,7 @@ import dev.rfnotebook.storage.SyntheticObservations
 
 class MainActivity : ComponentActivity() {
     private var usbPermissionState by mutableStateOf("unknown")
+    private var usbTopologyRevision by mutableIntStateOf(0)
     private var selectedSampleRateHz = 2_000_000
     private var selectedSweep = false
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
@@ -59,18 +61,44 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+    private val usbTopologyReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == UsbManager.ACTION_USB_DEVICE_ATTACHED ||
+                intent?.action == UsbManager.ACTION_USB_DEVICE_DETACHED
+            ) {
+                usbPermissionState = "unknown"
+                usbTopologyRevision++
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        ContextCompat.registerReceiver(this, usbPermissionReceiver, IntentFilter(ACTION_USB_PERMISSION), ContextCompat.RECEIVER_NOT_EXPORTED)
+        ContextCompat.registerReceiver(
+            this,
+            usbPermissionReceiver,
+            IntentFilter(ACTION_USB_PERMISSION),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        val usbTopologyFilter = IntentFilter().apply {
+            addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
+            addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
+        }
+        ContextCompat.registerReceiver(this, usbTopologyReceiver, usbTopologyFilter, ContextCompat.RECEIVER_EXPORTED)
         setContent { MaterialTheme { Surface(Modifier.fillMaxSize()) { SpikeScreen() } } }
     }
 
-    override fun onDestroy() { unregisterReceiver(usbPermissionReceiver); super.onDestroy() }
+    override fun onDestroy() {
+        unregisterReceiver(usbPermissionReceiver)
+        unregisterReceiver(usbTopologyReceiver)
+        super.onDestroy()
+    }
 
     @Composable private fun SpikeScreen() {
         val usb = getSystemService(UsbManager::class.java)
-        val hackrf = usb.deviceList.values.firstOrNull { it.vendorId == 0x1d50 && it.productId == 0x6089 }
+        val hackrf = remember(usbTopologyRevision) {
+            usb.deviceList.values.firstOrNull { it.vendorId == 0x1d50 && it.productId == 0x6089 }
+        }
         usbPermissionState = when {
             hackrf == null -> "HackRF not attached"
             usb.hasPermission(hackrf) -> "granted"
