@@ -45,7 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import dev.rfnotebook.acquisition.AcquisitionSpikeService
+import dev.rfnotebook.acquisition.CompatibilityReceiveService
 import dev.rfnotebook.acquisition.StorageGuard
 import dev.rfnotebook.acquisition.SurveyAcquisitionService
 import dev.rfnotebook.acquisition.SurveyAcquisitionState
@@ -68,7 +68,7 @@ class MainActivity : ComponentActivity() {
     private var usbPermissionState by mutableStateOf("unknown")
     private var usbTopologyRevision by mutableIntStateOf(0)
     private var pendingLaunch: SurveyLaunch? = null
-    private var pendingLegacyTest = false
+    private var pendingCompatibilityTest = false
     private var page by mutableStateOf(AppPage.SETUP)
     private var launchProblem by mutableStateOf<String?>(null)
 
@@ -91,15 +91,15 @@ class MainActivity : ComponentActivity() {
         val granted = grants[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
             grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true
         if (granted) {
-            if (pendingLegacyTest) {
-                pendingLegacyTest = false
-                ContextCompat.startForegroundService(this, Intent(this, AcquisitionSpikeService::class.java))
+            if (pendingCompatibilityTest) {
+                pendingCompatibilityTest = false
+                ContextCompat.startForegroundService(this, Intent(this, CompatibilityReceiveService::class.java))
             } else pendingLaunch?.let {
                 startSurveyService(it)
                 page = AppPage.ACTIVE
             }
         } else {
-            pendingLegacyTest = false
+            pendingCompatibilityTest = false
             launchProblem = "Location permission was denied; the survey was not started."
             page = AppPage.PREFLIGHT
         }
@@ -280,7 +280,7 @@ class MainActivity : ComponentActivity() {
                 Text("Request USB permission")
             }
             OutlinedButton(enabled = serialSuffix != null, onClick = {
-                pendingLegacyTest = true
+                pendingCompatibilityTest = true
                 locationLauncher.launch(SURVEY_PERMISSIONS)
             }) { Text("Run compatibility receive test") }
         }

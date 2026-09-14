@@ -45,7 +45,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-data class AcquisitionSpikeState(
+data class CompatibilityReceiveState(
     val phase: String = "idle",
     val sampleRateHz: Int = 0,
     val bytes: Long = 0,
@@ -62,16 +62,16 @@ data class AcquisitionSpikeState(
     val detail: String = "",
 )
 
-object AcquisitionSpikeStatus {
-    private val mutable = MutableStateFlow(AcquisitionSpikeState())
+object CompatibilityReceiveStatus {
+    private val mutable = MutableStateFlow(CompatibilityReceiveState())
     val state = mutable.asStateFlow()
-    internal fun update(value: AcquisitionSpikeState) { mutable.value = value }
+    internal fun update(value: CompatibilityReceiveState) { mutable.value = value }
 }
 
 internal fun hasAnyLocationPermission(coarseGranted: Boolean, fineGranted: Boolean): Boolean =
     coarseGranted || fineGranted
 
-class AcquisitionSpikeService : Service() {
+class CompatibilityReceiveService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var acquisitionJob: Job? = null
     @Volatile private var latestLocation: Location? = null
@@ -103,7 +103,7 @@ class AcquisitionSpikeService : Service() {
         }
         ensureBootstrapForeground()
         if (!hasLocationPermission()) {
-            AcquisitionSpikeStatus.update(AcquisitionSpikeState("error", detail = LOCATION_PERMISSION_REQUIRED))
+            CompatibilityReceiveStatus.update(CompatibilityReceiveState("error", detail = LOCATION_PERMISSION_REQUIRED))
             stopSelf(startId)
             return START_NOT_STICKY
         }
@@ -119,7 +119,7 @@ class AcquisitionSpikeService : Service() {
     private fun ensureBootstrapForeground() {
         if (foregroundReady) return
         getSystemService(NotificationManager::class.java).createNotificationChannel(
-            NotificationChannel(CHANNEL, "M0 acquisition", NotificationManager.IMPORTANCE_LOW),
+            NotificationChannel(CHANNEL, "Compatibility receive test", NotificationManager.IMPORTANCE_LOW),
         )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             ServiceCompat.startForeground(
@@ -158,7 +158,7 @@ class AcquisitionSpikeService : Service() {
         val malformedSweepBlocks = AtomicLong()
         var sweepFixtureCaptured = false
         try {
-            AcquisitionSpikeStatus.update(AcquisitionSpikeState("opening", rate))
+            CompatibilityReceiveStatus.update(CompatibilityReceiveState("opening", rate))
             val radio = AndroidHackrfRadio(this)
             val devices = radio.enumerate()
             require(devices.size == 1) { "Attach and permit exactly one supported HackRF" }
@@ -203,8 +203,8 @@ class AcquisitionSpikeService : Service() {
                 priorBytes = stats.byteCount
                 priorTime = now
                 val location = latestLocation
-                AcquisitionSpikeStatus.update(
-                    AcquisitionSpikeState(
+                CompatibilityReceiveStatus.update(
+                    CompatibilityReceiveState(
                         if (sweep) "sweeping" else "receiving",
                         rate,
                         stats.byteCount,
@@ -226,9 +226,9 @@ class AcquisitionSpikeService : Service() {
                 )
             }
         } catch (_: CancellationException) {
-            AcquisitionSpikeStatus.update(AcquisitionSpikeState(detail = stopReason))
+            CompatibilityReceiveStatus.update(CompatibilityReceiveState(detail = stopReason))
         } catch (error: Throwable) {
-            AcquisitionSpikeStatus.update(AcquisitionSpikeState("error", rate, detail = error.message ?: error.javaClass.simpleName))
+            CompatibilityReceiveStatus.update(CompatibilityReceiveState("error", rate, detail = error.message ?: error.javaClass.simpleName))
             getSystemService(NotificationManager::class.java).notify(
                 NOTIFICATION_ID,
                 notification("Receive probe failed: ${error.message ?: error.javaClass.simpleName}"),
@@ -253,11 +253,11 @@ class AcquisitionSpikeService : Service() {
     )
 
     private fun notification(text: String): Notification {
-        val stopIntent = Intent(this, AcquisitionSpikeService::class.java).setAction(ACTION_STOP)
+        val stopIntent = Intent(this, CompatibilityReceiveService::class.java).setAction(ACTION_STOP)
         val stop = PendingIntent.getService(this, 1, stopIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_rx)
-            .setContentTitle("RF Field Notebook — RX only")
+            .setContentTitle("RF Field Notebook — receive only")
             .setContentText(text)
             .setOngoing(true)
             .addAction(0, "Stop", stop)
@@ -268,8 +268,8 @@ class AcquisitionSpikeService : Service() {
         acquisitionJob?.cancel()
         scope.cancel()
         if (detachReceiverRegistered) runCatching { unregisterReceiver(detachReceiver) }
-        if (AcquisitionSpikeStatus.state.value.phase != "error") {
-            AcquisitionSpikeStatus.update(AcquisitionSpikeState(detail = stopReason))
+        if (CompatibilityReceiveStatus.state.value.phase != "error") {
+            CompatibilityReceiveStatus.update(CompatibilityReceiveState(detail = stopReason))
         }
         super.onDestroy()
     }
@@ -277,7 +277,7 @@ class AcquisitionSpikeService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
-        const val ACTION_STOP = "dev.rfnotebook.action.STOP_SPIKE"
+        const val ACTION_STOP = "dev.rfnotebook.action.STOP_COMPATIBILITY_RECEIVE"
         const val EXTRA_SAMPLE_RATE_HZ = "sample-rate-hz"
         const val EXTRA_SWEEP = "sweep"
         private const val CHANNEL = "m0-acquisition"

@@ -7,7 +7,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application>
         <service
-            android:name=".AcquisitionSpikeService"
+            android:name=".CompatibilityReceiveService"
             android:exported="false"
             android:foregroundServiceType="connectedDevice|location|shortService" />
         <service

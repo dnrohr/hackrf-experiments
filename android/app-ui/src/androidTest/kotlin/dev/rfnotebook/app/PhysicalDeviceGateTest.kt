@@ -9,8 +9,8 @@ import androidx.core.content.ContextCompat
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import dev.rfnotebook.acquisition.AcquisitionSpikeService
-import dev.rfnotebook.acquisition.AcquisitionSpikeStatus
+import dev.rfnotebook.acquisition.CompatibilityReceiveService
+import dev.rfnotebook.acquisition.CompatibilityReceiveStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -42,9 +42,9 @@ class PhysicalDeviceGateTest {
         if (!(coarseDenied && fineDenied)) return
 
         ActivityScenario.launch(MainActivity::class.java).use {
-            ContextCompat.startForegroundService(context, Intent(context, AcquisitionSpikeService::class.java))
+            ContextCompat.startForegroundService(context, Intent(context, CompatibilityReceiveService::class.java))
             Thread.sleep(6_000)
-            assertEquals("error", AcquisitionSpikeStatus.state.value.phase)
+            assertEquals("error", CompatibilityReceiveStatus.state.value.phase)
         }
     }
 
@@ -67,21 +67,21 @@ class PhysicalDeviceGateTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             ContextCompat.startForegroundService(
                 context,
-                Intent(context, AcquisitionSpikeService::class.java),
+                Intent(context, CompatibilityReceiveService::class.java),
             )
             assertTrue("RX did not reach receiving state", waitUntil(10_000) {
-                AcquisitionSpikeStatus.state.value.phase == "receiving"
+                CompatibilityReceiveStatus.state.value.phase == "receiving"
             })
-            val bytesBeforeRemoval = AcquisitionSpikeStatus.state.value.bytes
+            val bytesBeforeRemoval = CompatibilityReceiveStatus.state.value.bytes
 
             scenario.onActivity { it.finishAndRemoveTask() }
 
             assertTrue("RX did not continue after activity task removal", waitUntil(5_000) {
-                val state = AcquisitionSpikeStatus.state.value
+                val state = CompatibilityReceiveStatus.state.value
                 state.phase == "receiving" && state.bytes > bytesBeforeRemoval
             })
         }
-        context.stopService(Intent(context, AcquisitionSpikeService::class.java))
+        context.stopService(Intent(context, CompatibilityReceiveService::class.java))
     }
 
     private fun waitUntil(timeoutMillis: Long, condition: () -> Boolean): Boolean {
