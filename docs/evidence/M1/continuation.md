@@ -7,9 +7,9 @@ Updated: 2026-09-14
 - The latest 902–928 MHz survey is Complete; no RF Field Notebook acquisition
   service or foreground notification remains.
 - The HackRF may be physically disconnected from the phone.
-- The application data is intentionally retained for evidence and currently
-  uses approximately 237 MiB. Clear it only after M1 is complete and the final
-  evidence no longer needs device-local verification.
+- The debug app was automatically uninstalled by the connected-test task and
+  then reinstalled, so its device-local survey database is now cleared. The
+  completed survey evidence remains in the repository's committed report.
 - Work is committed directly on `main`; nothing has been pushed.
 
 ## Latest completed evidence
@@ -23,7 +23,10 @@ Updated: 2026-09-14
   fixes, zero drops, zero overruns, and two closed zero-drop gaps:
   `PROCESS_DEATH` and `USB_DETACH`.
 - Full `lint test assembleDebug`, planning validation, receive-only static
-  validation, and native export validation passed after the fixes.
+  validation, and native export validation passed after the fixes. The
+  connected test result files report 5/5 storage tests and 3/3 app tests, but
+  the Gradle tasks return failure during automatic uninstall and need a
+  toolchain-level fix or a clean-device rerun.
 - Full details are in `hardware-report.md` in this directory.
 
 ## Remaining before M1 can be marked complete
@@ -40,8 +43,9 @@ Updated: 2026-09-14
 5. Audit M1 requirement links and acceptance boxes, complete the milestone
    Handoff section, update `ROADMAP.md`, rerun all validation, and commit with an
    `M1:` message.
-6. Only after the milestone evidence is complete, reclaim the approximately
-   237 MiB of device-local application data as the user requested.
+6. After the milestone evidence is complete, verify the phone is still clean;
+   the approximately 237 MiB of prior device-local test data has already been
+   reclaimed by the connected-test uninstall.
 
 ## Suggested next action
 
