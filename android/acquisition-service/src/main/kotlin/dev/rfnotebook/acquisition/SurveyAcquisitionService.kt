@@ -122,6 +122,7 @@ class SurveyAcquisitionService : Service() {
     private val routeDistanceMillimeters = AtomicLong()
     private val stopping = AtomicBoolean()
     private val currentRange = AtomicReference<Pair<Long, Long>?>(null)
+    private val operationalWarning = AtomicReference<String?>(null)
     private var lastRouteLocation: Location? = null
     private var estimatedSurveyBytes = 0L
     private var foregroundReady = false
@@ -249,12 +250,14 @@ class SurveyAcquisitionService : Service() {
             RoomSurveyStateStore(database.notebookDao()).closeOpenGaps(
                 surveyId, System.currentTimeMillis(), SystemClock.elapsedRealtimeNanos(),
             )
+            operationalWarning.set(null)
             SurveyAcquisitionStatus.update(SurveyAcquisitionStatus.state.value.copy(status = state.status, warning = null))
             updateNotification("Survey active • RX only")
         } catch (failure: Throwable) {
             val explanation = if (failure is RadioException) "${failure.code}: ${failure.message}" else failure.message ?: failure.javaClass.simpleName
+            operationalWarning.set("Resume failed: $explanation")
             SurveyAcquisitionStatus.update(
-                SurveyAcquisitionStatus.state.value.copy(status = SurveyStatus.PAUSED, warning = "Resume failed: $explanation"),
+                SurveyAcquisitionStatus.state.value.copy(status = SurveyStatus.PAUSED, warning = operationalWarning.get()),
             )
             updateNotification("Resume failed • survey remains paused")
         }
@@ -289,8 +292,9 @@ class SurveyAcquisitionService : Service() {
             surveyId, GapReason.USB_DETACH, System.currentTimeMillis(), SystemClock.elapsedRealtimeNanos(),
         )
         counters.increment(HealthCounter.SERVICE_GAP)
+        operationalWarning.set("USB detached; gap recorded. Reattach and Resume.")
         SurveyAcquisitionStatus.update(
-            SurveyAcquisitionStatus.state.value.copy(status = SurveyStatus.PAUSED, warning = "USB detached; gap recorded. Reattach and Resume."),
+            SurveyAcquisitionStatus.state.value.copy(status = SurveyStatus.PAUSED, warning = operationalWarning.get()),
         )
         updateNotification("USB detached • survey paused")
     }
@@ -385,6 +389,7 @@ class SurveyAcquisitionService : Service() {
             val thermal = getSystemService(PowerManager::class.java).currentThermalStatus
             val warning = HealthWarningPolicy.warning(
                 health, storage, battery, thermal, PowerManager.THERMAL_STATUS_MODERATE,
+                operationalWarning.get(),
             )
             val newestFix = latestFixes.get().lastOrNull()
             val fixAgeMs = newestFix?.let { (nowNs - it.monotonicNs).coerceAtLeast(0) / 1_000_000 }
@@ -486,8 +491,9 @@ class SurveyAcquisitionService : Service() {
             surveyId, GapReason.RADIO_STALL, System.currentTimeMillis(), SystemClock.elapsedRealtimeNanos(),
         )
         counters.increment(HealthCounter.SERVICE_GAP)
+        operationalWarning.set("Radio stalled; gap recorded. Tap Resume to reopen.")
         SurveyAcquisitionStatus.update(
-            SurveyAcquisitionStatus.state.value.copy(status = SurveyStatus.PAUSED, warning = "Radio stalled; gap recorded. Tap Resume to reopen."),
+            SurveyAcquisitionStatus.state.value.copy(status = SurveyStatus.PAUSED, warning = operationalWarning.get()),
         )
         updateNotification("Radio stalled • survey paused")
     }

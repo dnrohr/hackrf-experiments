@@ -96,6 +96,28 @@ This is runtime evidence for process-death recovery and continued receive-only
 acquisition. Direct database readback of the persisted process-death gap remains
 pending and is not inferred from the live UI alone.
 
+### Physical USB-detach observation
+
+- Date: 2026-09-14
+- Starting state: the recovered 4 MS/s production survey was Active with the
+  foreground service present and no reported stage drops or overruns
+- Action: the operator physically disconnected the HackRF from the phone
+- USB result: Android removed the HackRF USB device and no HackRF remained in
+  the reported USB topology
+- Application result: the survey moved to Paused, reported 0.00 MB/s, retained
+  its foreground service, and drained native/processing/disk queues to 0/0/0
+- Health result: native/processing/disk stage drops remained 0/0/0 and overruns
+  and malformed frames remained zero; the service-gap health counter produced
+  the visible `Acquisition loss recorded` warning
+- UI defect found and fixed: the periodic health update replaced the more useful
+  `USB detached; gap recorded. Reattach and Resume.` explanation. Operational
+  warnings are now retained alongside aggregate health warnings, with a unit
+  regression test.
+
+Native closure is supported by the zero receive rate and emptied queues, but
+reattach/Resume and direct database gap readback are still required to complete
+this acceptance sequence.
+
 ## Production survey observation
 
 - Date: 2026-09-14

@@ -114,7 +114,9 @@ object HealthWarningPolicy {
         batteryPercent: Int?,
         thermalStatus: Int,
         moderateThermalStatus: Int,
+        operationalWarning: String? = null,
     ): String? = buildList {
+        operationalWarning?.let(::add)
         if (health.hasDataLoss) add("Acquisition loss recorded")
         if (availableStorageBytes < StorageGuard.DEFAULT_RESERVE_BYTES) add("Storage reserve is low")
         if (batteryPercent != null && batteryPercent <= 15) add("Battery is low; orderly Stop is available")

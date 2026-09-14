@@ -101,4 +101,25 @@ class BoundedPipelineTest {
 
         assertTrue(warning!!.contains("Acquisition loss recorded"))
     }
+
+    @Test fun `operational gap reason remains visible beside health warning`() {
+        val native = BoundedStage<Int>(PipelineStage.NATIVE, 1)
+        val processing = BoundedStage<Int>(PipelineStage.PROCESSING, 1)
+        val persistence = BoundedStage<Int>(PipelineStage.PERSISTENCE, 1)
+        val counters = AcquisitionHealthCounters().apply { increment(HealthCounter.SERVICE_GAP) }
+
+        val warning = HealthWarningPolicy.warning(
+            counters.snapshot(native, processing, persistence),
+            StorageGuard.DEFAULT_RESERVE_BYTES + 1,
+            batteryPercent = 80,
+            thermalStatus = 0,
+            moderateThermalStatus = 2,
+            operationalWarning = "USB detached; gap recorded. Reattach and Resume.",
+        )
+
+        assertEquals(
+            "USB detached; gap recorded. Reattach and Resume.; Acquisition loss recorded",
+            warning,
+        )
+    }
 }
