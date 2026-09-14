@@ -23,6 +23,9 @@ import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import dev.rfnotebook.radio.api.RxConfig
+import dev.rfnotebook.radio.api.HackrfCompatibilityPolicy
+import dev.rfnotebook.radio.api.RadioErrorCode
+import dev.rfnotebook.radio.api.RadioException
 import dev.rfnotebook.radio.api.SampleSink
 import dev.rfnotebook.radio.api.SweepConfig
 import dev.rfnotebook.radio.api.SweepSink
@@ -164,6 +167,10 @@ class CompatibilityReceiveService : Service() {
             require(devices.size == 1) { "Attach and permit exactly one supported HackRF" }
             session = radio.open(devices.single().serialSuffix) as NativeRadioSession
             val info = session.deviceInfo()
+            val compatibility = HackrfCompatibilityPolicy.evaluate(info)
+            if (!compatibility.compatible) {
+                throw RadioException(RadioErrorCode.INCOMPATIBLE_FIRMWARE, compatibility.explanation)
+            }
             val deviceLabel = "${info.boardName} ${info.hardwareRevision}; FW ${info.firmwareVersion}; API ${info.apiVersion}; …${info.serialSuffix}"
             startLocationUpdates()
             if (sweep) {
