@@ -363,6 +363,7 @@ class MainActivity : ComponentActivity() {
             Text("GPS accuracy: ${state.locationAccuracyM?.let { "%.1f m".format(it) } ?: "missing"}; fix age: ${state.locationFixAgeMs?.let { "${it / 1_000}s" } ?: "—"}")
             state.health?.let { health ->
                 Text("Queues native/processing/disk: ${health.nativeQueueDepth}/${health.processingQueueDepth}/${health.persistenceQueueDepth}")
+                Text("Stage drops native/processing/disk: ${health.droppedNativeUnits}/${health.droppedProcessingUnits}/${health.droppedPersistenceUnits}")
                 Text("Drops: ${health.droppedNativeUnits + health.droppedProcessingUnits + health.droppedPersistenceUnits}; overruns: ${health.overrunCount}; malformed: ${health.malformedFrameCount}")
             }
             Text("Storage free / estimated remaining: ${state.availableStorageBytes?.let(::formatBytes) ?: "—"} / ${state.estimatedRemainingBytes?.let(::formatBytes) ?: "—"}")
