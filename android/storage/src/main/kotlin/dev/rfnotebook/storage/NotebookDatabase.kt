@@ -27,10 +27,14 @@ abstract class NotebookDatabase : RoomDatabase() {
     companion object {
         const val DATABASE_NAME = "rf-field-notebook.db"
 
-        fun open(context: Context): NotebookDatabase = Room.databaseBuilder(
-            context.applicationContext,
-            NotebookDatabase::class.java,
-            DATABASE_NAME,
-        ).build()
+        @Volatile private var instance: NotebookDatabase? = null
+
+        fun open(context: Context): NotebookDatabase = instance ?: synchronized(this) {
+            instance ?: Room.databaseBuilder(
+                context.applicationContext,
+                NotebookDatabase::class.java,
+                DATABASE_NAME,
+            ).build().also { instance = it }
+        }
     }
 }

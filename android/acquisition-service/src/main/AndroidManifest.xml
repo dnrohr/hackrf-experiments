@@ -10,5 +10,9 @@
             android:name=".AcquisitionSpikeService"
             android:exported="false"
             android:foregroundServiceType="connectedDevice|location|shortService" />
+        <service
+            android:name=".SurveyAcquisitionService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice|location|shortService" />
     </application>
 </manifest>

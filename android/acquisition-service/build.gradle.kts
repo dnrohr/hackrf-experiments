@@ -6,5 +6,7 @@ dependencies {
     implementation(project(":radio-api"))
     implementation(project(":radio-hackrf-native"))
     implementation(project(":signal-processing"))
+    implementation(project(":domain"))
+    implementation(project(":storage"))
     testImplementation("junit:junit:4.13.2")
 }

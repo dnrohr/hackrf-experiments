@@ -6,6 +6,8 @@ import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbManager
 import dev.rfnotebook.radio.api.RadioDescriptor
 import dev.rfnotebook.radio.api.RadioDeviceInfo
+import dev.rfnotebook.radio.api.RadioErrorCode
+import dev.rfnotebook.radio.api.RadioException
 import dev.rfnotebook.radio.api.RadioLimits
 import dev.rfnotebook.radio.api.RadioSession
 import dev.rfnotebook.radio.api.ReceiveOnlyRadio
@@ -42,12 +44,35 @@ class AndroidHackrfRadio(context: Context) : ReceiveOnlyRadio {
     }
 
     override suspend fun open(serialSuffix: String): RadioSession {
-        val matches = supportedDevices().filter { usbManager.hasPermission(it) && serialSuffix(it).endsWith(serialSuffix) }
-        require(matches.size == 1) { "Expected exactly one permitted HackRF matching the serial suffix" }
-        val connection = requireNotNull(usbManager.openDevice(matches.single())) { "Android could not open the permitted HackRF" }
+        if (serialSuffix.isBlank()) throw RadioException(RadioErrorCode.DEVICE_NOT_FOUND, "Select a HackRF serial suffix")
+        val attached = supportedDevices()
+        val suffixMatches = attached.filter { device ->
+            usbManager.hasPermission(device) && serialSuffix(device).endsWith(serialSuffix)
+        }
+        if (suffixMatches.size > 1) throw RadioException(
+            RadioErrorCode.AMBIGUOUS_SERIAL_SUFFIX,
+            "More than one permitted HackRF matches serial suffix …$serialSuffix",
+        )
+        if (suffixMatches.isEmpty()) {
+            val deniedMatchExists = attached.any { !usbManager.hasPermission(it) }
+            throw RadioException(
+                if (deniedMatchExists) RadioErrorCode.PERMISSION_REQUIRED else RadioErrorCode.DEVICE_NOT_FOUND,
+                if (deniedMatchExists) "Grant Android USB permission for the selected HackRF" else "Selected HackRF …$serialSuffix is not attached",
+            )
+        }
+        val selectedSuffix = serialSuffix(suffixMatches.single())
+        openSessions.acquire(selectedSuffix)
+        val connection = usbManager.openDevice(suffixMatches.single()) ?: run {
+            openSessions.release(selectedSuffix)
+            throw RadioException(RadioErrorCode.OPEN_FAILED, "Android could not open the permitted HackRF")
+        }
         val handle = NativeHackrf.nativeOpen(connection.fileDescriptor)
-        if (handle == 0L) { connection.close(); error("libhackrf could not open the Android USB descriptor") }
-        return NativeRadioSession(handle, connection, serialSuffix(matches.single()))
+        if (handle == 0L) {
+            connection.close()
+            openSessions.release(selectedSuffix)
+            throw RadioException(RadioErrorCode.OPEN_FAILED, "libhackrf could not open the Android USB descriptor")
+        }
+        return NativeRadioSession(handle, connection, selectedSuffix) { openSessions.release(selectedSuffix) }
     }
 
     private fun supportedDevices(): List<UsbDevice> = usbManager.deviceList.values.filter {
@@ -60,6 +85,7 @@ class AndroidHackrfRadio(context: Context) : ReceiveOnlyRadio {
     companion object {
         private const val HACKRF_VENDOR_ID = 0x1d50
         private val HACKRF_PRODUCT_IDS = setOf(0x6089, 0x604b, 0xcc15)
+        private val openSessions = OpenSessionRegistry()
     }
 }
 
@@ -67,6 +93,7 @@ class NativeRadioSession internal constructor(
     private var handle: Long,
     private val connection: UsbDeviceConnection,
     private val serialSuffix: String,
+    private val onClosed: () -> Unit,
 ) : RadioSession {
     private val deliveryScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var deliveryJob: Job? = null
@@ -108,6 +135,7 @@ class NativeRadioSession internal constructor(
         val current = synchronized(this) { handle.also { handle = 0 } }
         if (current != 0L) NativeHackrf.nativeClose(current)
         connection.close()
+        onClosed()
     }
 
     private suspend fun stopDelivery() {
@@ -127,7 +155,9 @@ class NativeRadioSession internal constructor(
     private companion object { const val POLL_INTERVAL_MS = 2L }
 }
 
-private fun checkNative(result: Int, action: String) { check(result == 0) { "Failed to $action (libhackrf error $result)" } }
+private fun checkNative(result: Int, action: String) {
+    if (result != 0) throw RadioException(RadioErrorCode.NATIVE_FAILURE, "Failed to $action (libhackrf error $result)")
+}
 
 private object HackrfRuntime {
     private val initialized = lazy { checkNative(NativeHackrf.nativeInitialize(), "initialize libhackrf") }

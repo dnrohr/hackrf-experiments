@@ -75,6 +75,21 @@ class NotebookDatabaseTest {
         assertEquals(8, dao.survey(survey.id)!!.overrunCount)
     }
 
+    @Test
+    fun referencedEquipmentChangeCreatesNewPersistentVersion() = kotlinx.coroutines.runBlocking {
+        val repository = NotebookSetupRepository(database.notebookDao())
+
+        val first = repository.createStarterSurvey("suffix", "HackRF One", 1, 1, "first", lnaGainDb = 16)
+        val second = repository.createStarterSurvey("suffix", "HackRF One", 2, 2, "second", lnaGainDb = 24)
+        val versions = database.notebookDao().equipmentProfileVersions("equipment:suffix")
+
+        assertEquals(listOf(1, 2), versions.map { it.version })
+        assertEquals(2L, versions.first().retiredAtEpochMs)
+        assertEquals(24, versions.last().lnaGainDb)
+        assertEquals("equipment:suffix:v1", database.notebookDao().survey(first.surveyId)!!.equipmentProfileVersionId)
+        assertEquals("equipment:suffix:v2", database.notebookDao().survey(second.surveyId)!!.equipmentProfileVersionId)
+    }
+
     private fun radio() = RadioDeviceEntity("radio", "HackRF One", "suffix", "r9", "fw", "api", 1, 1)
 
     private fun equipment(radioId: String) = EquipmentProfileEntity(
