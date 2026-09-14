@@ -47,6 +47,29 @@ This retest is stronger evidence for the revised native buffering path, but it
 does not replace the pending production survey, detach/recovery, or clean-stop
 evidence.
 
+### Post-persistence and processing-queue retest
+
+- Date: 2026-09-14
+- Phone: Google Pixel 8a, Android 17; wireless ADB; full device identifier omitted
+- HackRF: Great Scott Gadgets HackRF One; UI-reported firmware 2026.01.3,
+  USB API 1.10; full serial omitted
+- App build: M1 APK with batched Room persistence, processing-queue capacity
+  increased from 16 to 128, and per-stage drop reporting
+- Profile: 902–928 MHz, 100 kHz bins, 4 MS/s, LNA 16 dB, VGA 16 dB, RF
+  amplifier off, antenna-port power off
+- Runtime observation: 52 seconds active; USB rate 2.56 MB/s; 13,520
+  aggregates persisted; GPS accuracy 18.9 m with a 0-second fix age
+- Health observation: native/processing/disk queues 0/0/0; stage drops 0/0/0;
+  total drops 0; overruns 0; malformed frames 0; battery 76%; thermal status 0;
+  approximately 25 GB remained free
+- Cleanup: visible Stop was used and, after a 25-second drain window, no
+  production survey service or foreground notification remained. Direct Room
+  status readback remains pending, so this is not promoted to a clean-finalization
+  acceptance claim.
+
+This run is evidence that the bounded processing queue and batched persistence
+path remove the losses observed in the preceding 4 MS/s run.
+
 ## Production survey observation
 
 - Date: 2026-09-14
