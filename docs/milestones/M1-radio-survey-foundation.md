@@ -1,6 +1,6 @@
 # M1 — Radio and survey foundation
 
-- Status: Blocked by M0
+- Status: In progress
 - Depends on: M0 — Technical spikes
 - Produces: Reliable receive-only survey platform and persisted observations
 - Next milestone: M2 — Detection and fingerprinting
