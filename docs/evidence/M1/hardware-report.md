@@ -114,9 +114,25 @@ pending and is not inferred from the live UI alone.
   warnings are now retained alongside aggregate health warnings, with a unit
   regression test.
 
-Native closure is supported by the zero receive rate and emptied queues, but
-reattach/Resume and direct database gap readback are still required to complete
-this acceptance sequence.
+### Reattach, Resume, and finalization result
+
+- Action: the operator physically reattached the same HackRF; the application
+  reacquired USB permission and Recover reopened the paused survey
+- Resumed state: Active at 2.56 MB/s with native/processing/disk queues 0/0/0,
+  stage drops 0/0/0, overruns 0, malformed frames 0, and a live GPS fix
+- Cleanup: the visible Stop control completed finalization; afterward no
+  production acquisition service or foreground notification remained
+- Persisted summary: status Complete; duration 10 minutes 48 seconds; 60,060
+  spectrum aggregates; 338 location fixes; 72.0% located observation batches;
+  zero drops and zero overruns
+- Persisted gaps: two closed gaps were displayed in the summary:
+  `PROCESS_DEATH` (47,867 ms, zero dropped units) and `USB_DETACH` (422,641 ms,
+  zero dropped units)
+- Final health: USB rate 2.54 MB/s before shutdown; queues 0/0/0; battery 56%;
+  thermal status 0; approximately 25 GB free
+
+This completes the physical detach/reattach, forced-process recovery, direct
+gap readback, and orderly finalization sequence for this device and build.
 
 ## Production survey observation
 
@@ -158,8 +174,9 @@ Still to record or verify:
 
 - Exact USB cable/adapter or powered-hub topology
 - Hardware revision and measured sweep-cycle rate
-- Queue high-water marks and persisted final gap records
-- Pause/Resume, detach/reattach, pressure, and low-storage results
-- Direct database readback of the process-death gap
+- Queue high-water marks
+- Explicit queue-pressure and low-storage hardware results
+- A clean 30-minute screen-off run on the revised zero-loss pipeline (the prior
+  30-minute screen-off run predates the buffering fixes and recorded losses)
 
 No hardware acceptance criterion is claimed by this placeholder.
