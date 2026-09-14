@@ -7,7 +7,7 @@ Status: Software cases complete; physical cases pending
 | Native/processing/disk pressure | Fill capacity-one stages and offer two units | Every rejected unit counted by its stage | Passed, `BoundedPipelineTest` |
 | Malformed data | Increment malformed-frame events alongside pressure | Counter survives in health snapshot model | Passed, `BoundedPipelineTest` |
 | Unsupported rate/resolution | Validate unsupported sample rate and invalid DFT resolution | Start rejected with explanation; no implicit retuning | Passed, radio/profile tests |
-| Radio start failure | Fake radio throws after Active is persisted | Survey transitions to Failed with reason | Passed, `SurveyCoordinatorTest` |
+| Radio start failure | Fake radio throws after Active is persisted | Survey transitions to Failed with reason | Passed, `SurveyCoordinatorTest`; service startup cleanup now also persists `FAILED`, drains bounded workers, and closes the native session |
 | Process death | Recover persisted Active state | Radio stopped, survey Paused, process-death gap recorded | Passed, `SurveyCoordinatorTest` |
 | Low storage | Available bytes below estimate plus reserve | Preflight denied without allocating; an active survey stops orderly if free space later crosses the fixed reserve | Guard test passed; active-service device run pending |
 | USB detach | Physical removal while active | Native device closes, survey pauses, timestamped gap visible | Pending HackRF run |

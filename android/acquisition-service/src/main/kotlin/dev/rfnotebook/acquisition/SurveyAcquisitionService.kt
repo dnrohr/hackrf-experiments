@@ -577,8 +577,18 @@ class SurveyAcquisitionService : Service() {
         getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(text))
     }
 
-    private fun failVisible(failure: Throwable) {
+    private suspend fun failVisible(failure: Throwable) {
         val explanation = if (failure is RadioException) "${failure.code}: ${failure.message}" else failure.message ?: failure.javaClass.simpleName
+        if (::coordinator.isInitialized && ::surveyId.isInitialized) {
+            try {
+                val current = database.notebookDao().survey(surveyId)
+                if (current != null && current.status !in setOf(SurveyStatus.COMPLETE.name, SurveyStatus.FAILED.name)) {
+                    coordinator.command(surveyId, SurveyCommand.Fail(explanation))
+                }
+            } catch (_: Throwable) { }
+            try { stopWorkers() } catch (_: Throwable) { }
+            try { radioController.close() } catch (_: Throwable) { }
+        }
         SurveyAcquisitionStatus.update(SurveyAcquisitionStatus.state.value.copy(status = SurveyStatus.FAILED, warning = explanation))
         updateNotification("Survey failed • $explanation")
         stopSelf()
