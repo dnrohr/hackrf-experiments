@@ -1,6 +1,6 @@
 # M1 hardware report
 
-Status: Production survey and process-death recovery recorded; detach recovery pending
+Status: Production survey, process-death recovery, and detach/reattach recovery recorded; revised performance gates pending
 
 ## Connected software validation
 
@@ -162,8 +162,8 @@ gap readback, and orderly finalization sequence for this device and build.
 
 The run demonstrates screen-off operation and visible loss accounting, but it is
 not a clean performance gate because the drop count was nonzero. The exact
-physical cable/adapter topology, pause/resume, detach/reattach, process-death,
-queue-pressure, and low-storage cases remain pending. The native adapter has
+physical cable/adapter topology, queue-pressure, and low-storage cases remain
+pending. The native adapter has
 since been changed from the M0 one-slot buffer to a bounded eight-buffer ring;
 the run above predates that change and must not be used to judge the revised
 drop rate.
