@@ -13,6 +13,19 @@ data class FrequencyRange(val startHz: Long, val endHz: Long) {
     fun overlaps(other: FrequencyRange): Boolean = startHz < other.endHz && other.startHz < endHz
 
     fun contains(other: FrequencyRange): Boolean = startHz <= other.startHz && endHz >= other.endHz
+
+    fun excluding(exclusions: List<FrequencyRange>): List<FrequencyRange> {
+        var remaining = listOf(this)
+        exclusions.sortedBy { it.startHz }.forEach { exclusion ->
+            remaining = remaining.flatMap { range ->
+                if (!range.overlaps(exclusion)) listOf(range) else buildList {
+                    if (range.startHz < exclusion.startHz) add(FrequencyRange(range.startHz, exclusion.startHz))
+                    if (exclusion.endHz < range.endHz) add(FrequencyRange(exclusion.endHz, range.endHz))
+                }
+            }
+        }
+        return remaining
+    }
 }
 
 data class EquipmentProfile(
@@ -161,6 +174,10 @@ data class BandProfile(
     val equipmentProfileId: String,
     val explorationAidDisclaimer: String = EXPLORATION_DISCLAIMER,
 ) {
+    fun effectiveSweepRanges(): List<FrequencyRange> = ranges
+        .flatMap { range -> range.excluding(excludedRanges.filter(range::contains)) }
+        .sortedBy { it.startHz }
+
     fun validate(capabilities: RadioCapabilities, equipment: EquipmentProfile): List<BandValidationError> {
         val errors = mutableListOf<BandValidationError>()
         if (ranges.isEmpty()) errors += BandValidationError(BandValidationCode.EMPTY_RANGES, "At least one range is required")
@@ -175,6 +192,14 @@ data class BandProfile(
         }
         if (excludedRanges.any { excluded -> ranges.none { it.contains(excluded) } }) {
             errors += BandValidationError(BandValidationCode.EXCLUSION_OUTSIDE_RANGE, "Every exclusion must be inside one survey range")
+        }
+        if (ranges.isNotEmpty() && effectiveSweepRanges().isEmpty()) {
+            errors += BandValidationError(BandValidationCode.EMPTY_AFTER_EXCLUSIONS, "Excluded ranges remove the entire survey band")
+        } else if (effectiveSweepRanges().size > MAX_SWEEP_RANGES) {
+            errors += BandValidationError(
+                BandValidationCode.TOO_MANY_EFFECTIVE_RANGES,
+                "Included ranges minus exclusions produce more than $MAX_SWEEP_RANGES hardware sweep ranges",
+            )
         }
         if (binWidthHz <= 0) errors += BandValidationError(BandValidationCode.INVALID_BIN_WIDTH, "Bin width must be positive")
         if (binWidthHz > 0 && (equipment.sampleRateHz % binWidthHz != 0L ||
@@ -223,6 +248,7 @@ data class BandProfile(
 
     companion object {
         const val EXPLORATION_DISCLAIMER = "Receive-only exploration aid; not authorization to transmit."
+        const val MAX_SWEEP_RANGES = 10
     }
 }
 
@@ -247,6 +273,8 @@ enum class BandValidationCode {
     INVALID_REVISIT,
     INVALID_THRESHOLD,
     INVALID_MINIMUM_BANDWIDTH,
+    EMPTY_AFTER_EXCLUSIONS,
+    TOO_MANY_EFFECTIVE_RANGES,
     UNSUPPORTED_SAMPLE_RATE,
 }
 

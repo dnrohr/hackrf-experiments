@@ -118,7 +118,9 @@ class NativeRadioSession internal constructor(
         RadioLimits.requireValid(config)
         stopDelivery()
         checkNative(NativeHackrf.nativeStartSweep(
-            requireOpen(), config.startFrequencyHz, config.endFrequencyHz, config.binWidthHz, config.sampleRateHz,
+            requireOpen(),
+            config.ranges.flatMap { listOf(it.startFrequencyHz, it.endFrequencyHz) }.toLongArray(),
+            config.binWidthHz, config.sampleRateHz,
             config.basebandFilterHz, config.lnaGainDb, config.vgaGainDb,
             config.rfAmpEnabled, config.antennaPowerEnabled,
         ), "start sweep")

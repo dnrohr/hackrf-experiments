@@ -107,6 +107,21 @@ data class AcquisitionHealth(
             malformedFrameCount + overrunCount + serviceGapCount > 0
 }
 
+object HealthWarningPolicy {
+    fun warning(
+        health: AcquisitionHealth,
+        availableStorageBytes: Long,
+        batteryPercent: Int?,
+        thermalStatus: Int,
+        moderateThermalStatus: Int,
+    ): String? = buildList {
+        if (health.hasDataLoss) add("Acquisition loss recorded")
+        if (availableStorageBytes < StorageGuard.DEFAULT_RESERVE_BYTES) add("Storage reserve is low")
+        if (batteryPercent != null && batteryPercent <= 15) add("Battery is low; orderly Stop is available")
+        if (thermalStatus >= moderateThermalStatus) add("Thermal pressure detected; measurement settings remain fixed")
+    }.joinToString("; ").ifBlank { null }
+}
+
 data class StorageAssessment(
     val canStart: Boolean,
     val availableBytes: Long,

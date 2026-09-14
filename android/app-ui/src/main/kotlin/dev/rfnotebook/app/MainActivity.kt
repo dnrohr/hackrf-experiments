@@ -52,6 +52,8 @@ import dev.rfnotebook.acquisition.SurveyAcquisitionState
 import dev.rfnotebook.acquisition.SurveyAcquisitionStatus
 import dev.rfnotebook.domain.SurveyStatus
 import dev.rfnotebook.domain.FrequencyText
+import dev.rfnotebook.domain.FrequencyRange
+import dev.rfnotebook.domain.EquipmentProfile
 import dev.rfnotebook.storage.NotebookDatabase
 import dev.rfnotebook.storage.NotebookSetupRepository
 import dev.rfnotebook.storage.SurveyLaunch
@@ -67,6 +69,8 @@ class MainActivity : ComponentActivity() {
     private var usbTopologyRevision by mutableIntStateOf(0)
     private var pendingLaunch: SurveyLaunch? = null
     private var pendingLegacyTest = false
+    private var page by mutableStateOf(AppPage.SETUP)
+    private var launchProblem by mutableStateOf<String?>(null)
 
     private val usbPermissionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -90,7 +94,14 @@ class MainActivity : ComponentActivity() {
             if (pendingLegacyTest) {
                 pendingLegacyTest = false
                 ContextCompat.startForegroundService(this, Intent(this, AcquisitionSpikeService::class.java))
-            } else pendingLaunch?.let(::startSurveyService)
+            } else pendingLaunch?.let {
+                startSurveyService(it)
+                page = AppPage.ACTIVE
+            }
+        } else {
+            pendingLegacyTest = false
+            launchProblem = "Location permission was denied; the survey was not started."
+            page = AppPage.PREFLIGHT
         }
     }
 
@@ -122,24 +133,30 @@ class MainActivity : ComponentActivity() {
             else -> usbPermissionState
         }
         val serialSuffix = if (permitted) runCatching { hackrf.serialNumber?.takeLast(8) }.getOrNull() else null
-        var page by remember { mutableStateOf(AppPage.SETUP) }
         var band by remember { mutableStateOf("902–928 MHz") }
         var rate by remember { mutableIntStateOf(4_000_000) }
         var lna by remember { mutableIntStateOf(16) }
         var vga by remember { mutableIntStateOf(16) }
         var antennaName by remember { mutableStateOf("Uncalibrated antenna") }
         var adapterNotes by remember { mutableStateOf("") }
+        var equipmentNotes by remember { mutableStateOf("Relative observations only; this profile is not calibrated.") }
+        var photoReference by remember { mutableStateOf("") }
         var rangeStart by remember { mutableStateOf("902 MHz") }
         var rangeEnd by remember { mutableStateOf("928 MHz") }
+        var additionalRanges by remember { mutableStateOf("") }
+        var excludedRanges by remember { mutableStateOf("") }
         var binWidth by remember { mutableIntStateOf(100_000) }
+        var targetRevisit by remember { mutableStateOf("1000") }
+        var thresholdSnr by remember { mutableStateOf("8") }
+        var minimumBandwidth by remember { mutableStateOf("100 kHz") }
         var launch by remember { mutableStateOf<SurveyLaunch?>(null) }
         var recoverable by remember { mutableStateOf<SurveyLaunch?>(null) }
         var summary by remember { mutableStateOf<SurveySummary?>(null) }
         var problem by remember { mutableStateOf<String?>(null) }
         val acquisition by SurveyAcquisitionStatus.state.collectAsState()
         val coroutineScope = rememberCoroutineScope()
-        val storage = remember(rangeStart, rangeEnd, binWidth) {
-            val estimate = runCatching { estimateSurveyBytes(rangeStart, rangeEnd, binWidth) }
+        val storage = remember(rangeStart, rangeEnd, additionalRanges, excludedRanges, binWidth) {
+            val estimate = runCatching { estimateSurveyBytes(rangeStart, rangeEnd, additionalRanges, excludedRanges, binWidth) }
                 .getOrDefault(Long.MAX_VALUE - StorageGuard.DEFAULT_RESERVE_BYTES)
             StorageGuard.assess(StatFs(filesDir.absolutePath).availableBytes, estimate)
         }
@@ -165,19 +182,24 @@ class MainActivity : ComponentActivity() {
                         val defaults = defaultRangeText(selected)
                         rangeStart = defaults.first
                         rangeEnd = defaults.second
+                        additionalRanges = ""
+                        excludedRanges = ""
                     }, rate, { rate = it }, lna, { lna = it }, vga, { vga = it },
                     antennaName, { antennaName = it }, adapterNotes, { adapterNotes = it },
+                    equipmentNotes, { equipmentNotes = it }, photoReference, { photoReference = it },
                     rangeStart, { rangeStart = it }, rangeEnd, { rangeEnd = it },
-                    binWidth, { binWidth = it }, recoverable,
+                    additionalRanges, { additionalRanges = it }, excludedRanges, { excludedRanges = it },
+                    binWidth, { binWidth = it }, targetRevisit, { targetRevisit = it },
+                    thresholdSnr, { thresholdSnr = it }, minimumBandwidth, { minimumBandwidth = it }, recoverable,
                     onRecover = { value ->
                         launch = value
                         pendingLaunch = value
+                        launchProblem = null
                         locationLauncher.launch(SURVEY_PERMISSIONS)
-                        page = AppPage.ACTIVE
                     },
                     onPreflight = { page = AppPage.PREFLIGHT },
                 )
-                AppPage.PREFLIGHT -> PreflightPage(serialSuffix, band, rangeStart, rangeEnd, binWidth, rate, lna, vga, storage.canStart, storage.explanation,
+                AppPage.PREFLIGHT -> PreflightPage(serialSuffix, band, rangeStart, rangeEnd, additionalRanges, excludedRanges, binWidth, targetRevisit, thresholdSnr, minimumBandwidth, rate, lna, vga, storage.canStart, storage.explanation,
                     gpsStatus(),
                     onBack = { page = AppPage.SETUP },
                     onStart = {
@@ -191,17 +213,21 @@ class MainActivity : ComponentActivity() {
                                         SystemClock.elapsedRealtimeNanos(), "$band field survey", band, rate, lna, vga,
                                         antennaName = antennaName,
                                         adapterNotes = adapterNotes,
-                                        bandStartHz = FrequencyText.parseHz(rangeStart),
-                                        bandEndHz = FrequencyText.parseHz(rangeEnd),
+                                        equipmentNotes = equipmentNotes,
+                                        photoReference = photoReference,
                                         binWidthHz = binWidth.toLong(),
-                                        minimumBandwidthHz = binWidth.toLong(),
+                                        targetRevisitMs = targetRevisit.toLong(),
+                                        thresholdSnrDb = thresholdSnr.toFloat(),
+                                        minimumBandwidthHz = FrequencyText.parseHz(minimumBandwidth),
+                                        includedRanges = configuredRanges(rangeStart, rangeEnd, additionalRanges),
+                                        excludedRanges = FrequencyText.parseRanges(excludedRanges),
                                     )
                                 }
                             }.onSuccess {
                                 launch = it
                                 pendingLaunch = it
+                                launchProblem = null
                                 locationLauncher.launch(SURVEY_PERMISSIONS)
-                                page = AppPage.ACTIVE
                             }.onFailure { problem = it.message }
                         }
                     },
@@ -221,6 +247,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
             problem?.let { Text("Problem: $it", color = MaterialTheme.colorScheme.error) }
+            launchProblem?.let { Text("Problem: $it", color = MaterialTheme.colorScheme.error) }
         }
     }
 
@@ -229,8 +256,15 @@ class MainActivity : ComponentActivity() {
         band: String, onBand: (String) -> Unit, rate: Int, onRate: (Int) -> Unit,
         lna: Int, onLna: (Int) -> Unit, vga: Int, onVga: (Int) -> Unit,
         antennaName: String, onAntennaName: (String) -> Unit, adapterNotes: String, onAdapterNotes: (String) -> Unit,
+        equipmentNotes: String, onEquipmentNotes: (String) -> Unit,
+        photoReference: String, onPhotoReference: (String) -> Unit,
         rangeStart: String, onRangeStart: (String) -> Unit, rangeEnd: String, onRangeEnd: (String) -> Unit,
+        additionalRanges: String, onAdditionalRanges: (String) -> Unit,
+        excludedRanges: String, onExcludedRanges: (String) -> Unit,
         binWidth: Int, onBinWidth: (Int) -> Unit,
+        targetRevisit: String, onTargetRevisit: (String) -> Unit,
+        thresholdSnr: String, onThresholdSnr: (String) -> Unit,
+        minimumBandwidth: String, onMinimumBandwidth: (String) -> Unit,
         recoverable: SurveyLaunch?, onRecover: (SurveyLaunch) -> Unit, onPreflight: () -> Unit,
     ) {
         recoverable?.let { value ->
@@ -253,6 +287,8 @@ class MainActivity : ComponentActivity() {
         Section("Equipment profile v1") {
             OutlinedTextField(antennaName, onAntennaName, label = { Text("Antenna name") }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(adapterNotes, onAdapterNotes, label = { Text("Connector / adapter notes") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(equipmentNotes, onEquipmentNotes, label = { Text("Equipment notes") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(photoReference, onPhotoReference, label = { Text("Optional local photo reference") }, modifier = Modifier.fillMaxWidth())
             Text("RF amplifier: Off • antenna-port power: Off")
             GainPicker("LNA gain", lna, 0..40 step 8, onLna)
             GainPicker("VGA gain", vga, 0..62 step 2, onVga)
@@ -263,6 +299,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+            Text("Baseband filter: ${EquipmentProfile.recommendedBasebandFilterHz(rate) / 1_000} kHz")
             Text("After a survey references v1, an edit creates v2.")
         }
         Section("Band profile") {
@@ -271,19 +308,26 @@ class MainActivity : ComponentActivity() {
             } }
             OutlinedTextField(rangeStart, onRangeStart, label = { Text("Range start (Hz/kHz/MHz/GHz)") }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(rangeEnd, onRangeEnd, label = { Text("Range end (Hz/kHz/MHz/GHz)") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(additionalRanges, onAdditionalRanges, label = { Text("Additional ranges (start-end; …)") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(excludedRanges, onExcludedRanges, label = { Text("Excluded ranges (start-end; …)") }, modifier = Modifier.fillMaxWidth())
             Text("Resolution: ${binWidth / 1_000} kHz")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(50_000, 100_000, 200_000).forEach { width -> OutlinedButton(onClick = { onBinWidth(width) }) {
                     Text("${width / 1_000}k${if (width == binWidth) " ✓" else ""}")
                 } }
             }
+            OutlinedTextField(targetRevisit, onTargetRevisit, label = { Text("Target revisit (ms)") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(thresholdSnr, onThresholdSnr, label = { Text("Detector threshold (dB)") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(minimumBandwidth, onMinimumBandwidth, label = { Text("Minimum bandwidth (Hz/kHz/MHz)") }, modifier = Modifier.fillMaxWidth())
             Text("Exploration aids only; these profiles do not authorize transmission.")
         }
         Button(enabled = serialSuffix != null, onClick = onPreflight, modifier = Modifier.fillMaxWidth()) { Text("Survey preflight") }
     }
 
     @Composable private fun PreflightPage(
-        serialSuffix: String?, band: String, rangeStart: String, rangeEnd: String, binWidth: Int,
+        serialSuffix: String?, band: String, rangeStart: String, rangeEnd: String,
+        additionalRanges: String, excludedRanges: String, binWidth: Int,
+        targetRevisit: String, thresholdSnr: String, minimumBandwidth: String,
         rate: Int, lna: Int, vga: Int,
         storageOkay: Boolean, storageExplanation: String, gpsStatus: String,
         onBack: () -> Unit, onStart: () -> Unit,
@@ -291,8 +335,11 @@ class MainActivity : ComponentActivity() {
         Section("Preflight") {
             Text("HackRF: ${serialSuffix?.let { "…$it ready" } ?: "not ready"}")
             Text("$band ($rangeStart–$rangeEnd) • ${binWidth / 1_000} kHz bins")
-            Text("${rate / 1_000_000} MS/s • LNA $lna dB • VGA $vga dB")
-            Text("Estimated cycle: ${runCatching { estimatedCycleMs(rangeStart, rangeEnd, binWidth) }.getOrNull()?.let { "$it ms" } ?: "invalid range"} from measured M0 capacity")
+            if (additionalRanges.isNotBlank()) Text("Additional ranges: $additionalRanges")
+            if (excludedRanges.isNotBlank()) Text("Excluded: $excludedRanges")
+            Text("${rate / 1_000_000} MS/s • ${EquipmentProfile.recommendedBasebandFilterHz(rate) / 1_000} kHz filter • LNA $lna dB • VGA $vga dB")
+            Text("Revisit ${targetRevisit} ms • threshold ${thresholdSnr} dB • minimum bandwidth $minimumBandwidth")
+            Text("Estimated cycle: ${runCatching { estimatedCycleMs(rangeStart, rangeEnd, additionalRanges, excludedRanges, binWidth) }.getOrNull()?.let { "$it ms" } ?: "invalid range"} from measured M0 capacity")
             Text("GPS: $gpsStatus")
             Text("Stale and missing fixes remain visible and unlocated observations are preserved.")
             Text("Storage: $storageExplanation")
@@ -308,13 +355,18 @@ class MainActivity : ComponentActivity() {
         Section("Active survey") {
             Text("State: ${state.status ?: "preparing"}")
             Text("Device: ${state.device}")
+            Text("Ranges: ${state.configuredRanges}")
+            Text("Current subrange: ${state.currentRange}")
+            Text("Duration: ${state.startedAtEpochMs?.let { formatDuration(System.currentTimeMillis() - it) } ?: "—"}; distance: ${"%.2f".format(state.distanceMeters / 1_000.0)} km")
             Text("USB: ${"%.2f".format(state.usbBytesPerSecond / 1_000_000.0)} MB/s")
             Text("Aggregates persisted: ${state.aggregatesPersisted}")
-            Text("GPS accuracy: ${state.locationAccuracyM?.let { "%.1f m".format(it) } ?: "missing"}")
+            Text("GPS accuracy: ${state.locationAccuracyM?.let { "%.1f m".format(it) } ?: "missing"}; fix age: ${state.locationFixAgeMs?.let { "${it / 1_000}s" } ?: "—"}")
             state.health?.let { health ->
                 Text("Queues native/processing/disk: ${health.nativeQueueDepth}/${health.processingQueueDepth}/${health.persistenceQueueDepth}")
                 Text("Drops: ${health.droppedNativeUnits + health.droppedProcessingUnits + health.droppedPersistenceUnits}; overruns: ${health.overrunCount}; malformed: ${health.malformedFrameCount}")
             }
+            Text("Storage free / estimated remaining: ${state.availableStorageBytes?.let(::formatBytes) ?: "—"} / ${state.estimatedRemainingBytes?.let(::formatBytes) ?: "—"}")
+            Text("Battery: ${state.batteryPercent?.let { "$it%" } ?: "—"}; thermal status: ${state.thermalStatus ?: "—"}")
             state.warning?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -330,9 +382,22 @@ class MainActivity : ComponentActivity() {
                 Text("Status: ${summary.survey.status}")
                 Text("Spectrum aggregates: ${summary.aggregateCount}")
                 Text("Location fixes: ${summary.locationFixCount}")
+                val duration = (summary.survey.endedAtEpochMs ?: System.currentTimeMillis()) - (summary.survey.startedAtEpochMs ?: summary.survey.lastWallTimeEpochMs)
+                Text("Duration: ${formatDuration(duration)}; route distance: ${"%.2f".format(summary.survey.distanceMeters / 1_000.0)} km")
+                Text("Located observation batches: ${"%.1f".format(summary.survey.locationCoverageRatio * 100)}%")
                 Text("Explicit acquisition gaps: ${summary.gapCount}")
+                summary.gaps.forEach { gap ->
+                    val durationMs = gap.endedMonotonicNs?.let { (it - gap.startedMonotonicNs).coerceAtLeast(0) / 1_000_000 }
+                    Text("${gap.reason}: ${durationMs?.let { "$it ms" } ?: "open"}; ${gap.droppedUnitCount} dropped — ${gap.explanation}")
+                }
                 Text("Unlocated observations remain stored as MISSING or STALE.")
                 Text("Drops: ${summary.survey.droppedFrameCount}; overruns: ${summary.survey.overrunCount}")
+                summary.latestHealth?.let { health ->
+                    Text("Final USB rate: ${"%.2f".format(health.usbBytesPerSecond / 1_000_000.0)} MB/s")
+                    Text("Final queues native/processing/disk: ${health.nativeQueueDepth}/${health.processingQueueDepth}/${health.persistenceQueueDepth}")
+                    Text("Battery: ${health.batteryPercent?.let { "$it%" } ?: "—"}; thermal status: ${health.thermalStatus ?: "—"}; free storage: ${formatBytes(health.availableStorageBytes)}")
+                    health.warning?.let { Text("Health: $it", color = MaterialTheme.colorScheme.error) }
+                }
             }
         }
         Button(onClick = onNew) { Text("New survey") }
@@ -371,7 +436,11 @@ class MainActivity : ComponentActivity() {
             .putExtra(SurveyAcquisitionService.EXTRA_LNA_GAIN_DB, value.lnaGainDb)
             .putExtra(SurveyAcquisitionService.EXTRA_VGA_GAIN_DB, value.vgaGainDb)
             .putExtra(SurveyAcquisitionService.EXTRA_RF_AMP_ENABLED, value.rfAmpEnabled)
-            .putExtra(SurveyAcquisitionService.EXTRA_ANTENNA_POWER_ENABLED, value.antennaPowerEnabled))
+            .putExtra(SurveyAcquisitionService.EXTRA_ANTENNA_POWER_ENABLED, value.antennaPowerEnabled)
+            .putExtra(
+                SurveyAcquisitionService.EXTRA_SCAN_RANGES_HZ,
+                value.scanRanges.flatMap { listOf(it.startHz, it.endHz) }.toLongArray(),
+            ))
     }
 
     private fun serviceAction(action: String) {
@@ -395,11 +464,21 @@ class MainActivity : ComponentActivity() {
         return "$provider fix ±${"%.1f".format(last.accuracy)} m, age ${ageMs / 1_000}s"
     }
 
-    private fun estimateSurveyBytes(start: String, end: String, binWidth: Int): Long =
-        ((FrequencyText.parseHz(end) - FrequencyText.parseHz(start)) / binWidth).also { require(it > 0) } * 1_800L * 128L
+    private fun estimateSurveyBytes(start: String, end: String, additional: String, excluded: String, binWidth: Int): Long =
+        ((includedWidth(start, end, additional, excluded) + binWidth - 1) / binWidth).also { require(it > 0) } * 1_800L * 128L
 
-    private fun estimatedCycleMs(start: String, end: String, binWidth: Int): Long =
-        (((FrequencyText.parseHz(end) - FrequencyText.parseHz(start)) / binWidth) / 2L).also { require(it > 0) }
+    private fun estimatedCycleMs(start: String, end: String, additional: String, excluded: String, binWidth: Int): Long =
+        (includedWidth(start, end, additional, excluded) / binWidth / 2L).also { require(it > 0) }
+
+    private fun includedWidth(start: String, end: String, additional: String, excluded: String): Long {
+        val ranges = configuredRanges(start, end, additional)
+        val exclusions = FrequencyText.parseRanges(excluded)
+        require(exclusions.all { exclusion -> ranges.any { it.contains(exclusion) } })
+        return ranges.sumOf { it.widthHz } - exclusions.sumOf { it.widthHz }
+    }
+
+    private fun configuredRanges(start: String, end: String, additional: String): List<FrequencyRange> =
+        listOf(FrequencyRange(FrequencyText.parseHz(start), FrequencyText.parseHz(end))) + FrequencyText.parseRanges(additional)
 
     private fun defaultRangeText(band: String) = when (band) {
         "315 MHz" -> "314 MHz" to "316 MHz"
@@ -408,6 +487,13 @@ class MainActivity : ComponentActivity() {
         "450–470 MHz" -> "450 MHz" to "470 MHz"
         else -> "902 MHz" to "928 MHz"
     }
+
+    private fun formatDuration(durationMs: Long): String {
+        val seconds = durationMs.coerceAtLeast(0) / 1_000
+        return "%02d:%02d:%02d".format(seconds / 3_600, seconds / 60 % 60, seconds % 60)
+    }
+
+    private fun formatBytes(bytes: Long): String = "%.1f MiB".format(bytes / 1_048_576.0)
 
     companion object {
         private const val ACTION_USB_PERMISSION = "dev.rfnotebook.action.USB_PERMISSION"

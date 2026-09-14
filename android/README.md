@@ -1,8 +1,15 @@
-# RF Field Notebook Android spike
+# RF Field Notebook Android application
 
-This is the Milestone 0 Android feasibility project. It deliberately exposes a
-receive-only radio boundary; hardware-dependent behavior remains a debug spike
-until the evidence in `../docs/evidence/M0/` is complete.
+This project contains the M1 receive-only survey foundation. The application
+discovers a permitted HackRF, versions equipment and band profiles, runs a
+foreground spectrum survey, associates observations with location fixes, and
+stores one-second spectrum aggregates plus explicit health and gap records.
+
+The `radio-api` surface deliberately exposes no transmit operation. `SweepConfig`
+accepts one to ten non-overlapping ranges, fixed gains, a measured sample rate,
+and its matching baseband filter. The native adapter applies those exact settings
+and turns the RF amplifier and antenna-port power off on every open, failed start,
+stop, and close path.
 
 ## Prerequisites
 
@@ -21,7 +28,10 @@ Then, from the repository root, audit the packaged ABI exports:
 
 ```powershell
 .\scripts\Test-NativeExports.ps1
+.\scripts\Test-ReceiveOnly.ps1
+.\scripts\Test-Planning.ps1
 ```
 
-The CI-safe build and export audit require no radio. The connected test is evidence
-only when run on the named target phone with the physical HackRF topology.
+The CI-safe build and static audits require no radio. A connected test is evidence
+only when its report names the target phone and actual USB topology. M1 hardware
+results and schema notes live under `../docs/evidence/M1/`.

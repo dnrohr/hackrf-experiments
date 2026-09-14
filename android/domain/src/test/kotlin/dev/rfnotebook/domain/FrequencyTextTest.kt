@@ -16,4 +16,12 @@ class FrequencyTextTest {
     fun `rejects ambiguous prose`() {
         FrequencyText.parseHz("around 915")
     }
+
+    @Test fun `parses multiple ranges and exclusions`() {
+        assertEquals(
+            listOf(FrequencyRange(902_000_000, 910_000_000), FrequencyRange(920_000_000, 928_000_000)),
+            FrequencyText.parseRanges("902 MHz-910 MHz; 920 MHz–928 MHz"),
+        )
+        assertEquals(emptyList<FrequencyRange>(), FrequencyText.parseRanges(" "))
+    }
 }

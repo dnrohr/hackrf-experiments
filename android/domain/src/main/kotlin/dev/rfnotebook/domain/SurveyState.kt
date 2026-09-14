@@ -28,7 +28,7 @@ data class SurveyTransition(
     val gapReason: GapReason? = null,
 )
 
-enum class GapReason { PROCESS_DEATH, USB_DETACH, RADIO_STALL, QUEUE_PRESSURE, SERVICE_INTERRUPTION }
+enum class GapReason { PROCESS_DEATH, USB_DETACH, RADIO_STALL, QUEUE_PRESSURE, LOW_STORAGE, SERVICE_INTERRUPTION }
 
 class InvalidSurveyTransition(from: SurveyStatus, command: SurveyCommand) :
     IllegalStateException("Cannot apply ${command::class.simpleName} from $from")

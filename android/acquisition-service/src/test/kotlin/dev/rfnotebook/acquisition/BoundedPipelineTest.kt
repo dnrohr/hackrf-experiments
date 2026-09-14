@@ -60,4 +60,23 @@ class BoundedPipelineTest {
         assertEquals(0, queue.depth)
         assertEquals(2L, queue.droppedCount)
     }
+
+    @Test fun `pressure injection creates a user-visible warning`() {
+        val native = BoundedStage<Int>(PipelineStage.NATIVE, 1)
+        val processing = BoundedStage<Int>(PipelineStage.PROCESSING, 1)
+        val persistence = BoundedStage<Int>(PipelineStage.PERSISTENCE, 1)
+        native.offer(1)
+        native.offer(2)
+        val health = AcquisitionHealthCounters().snapshot(native, processing, persistence)
+
+        val warning = HealthWarningPolicy.warning(
+            health,
+            StorageGuard.DEFAULT_RESERVE_BYTES + 1,
+            batteryPercent = 80,
+            thermalStatus = 0,
+            moderateThermalStatus = 2,
+        )
+
+        assertTrue(warning!!.contains("Acquisition loss recorded"))
+    }
 }

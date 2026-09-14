@@ -194,21 +194,39 @@ Java_dev_rfnotebook_radio_hackrf_NativeHackrf_nativeStartRx(
 
 extern "C" JNIEXPORT jint JNICALL
 Java_dev_rfnotebook_radio_hackrf_NativeHackrf_nativeStartSweep(
-    JNIEnv*, jobject, jlong handle, jlong start_frequency_hz, jlong end_frequency_hz,
+    JNIEnv* env, jobject, jlong handle, jlongArray range_edges_hz,
     jint bin_width_hz, jint sample_rate_hz, jint baseband_filter_hz,
     jint lna_gain_db, jint vga_gain_db, jboolean rf_amp_enabled,
     jboolean antenna_power_enabled) {
     auto* session = from_handle(handle);
-    if (session == nullptr || session->device == nullptr ||
-        start_frequency_hz < kMinFrequencyHz || end_frequency_hz > kMaxFrequencyHz ||
-        start_frequency_hz >= end_frequency_hz || bin_width_hz <= 0 || !valid_rate(sample_rate_hz) ||
+    if (session == nullptr || session->device == nullptr || range_edges_hz == nullptr ||
+        bin_width_hz <= 0 || !valid_rate(sample_rate_hz) ||
         !valid_settings(sample_rate_hz, baseband_filter_hz, lna_gain_db, vga_gain_db)) {
         return HACKRF_ERROR_INVALID_PARAM;
     }
-    const std::uint16_t range_mhz[] = {
-        static_cast<std::uint16_t>(start_frequency_hz / 1'000'000),
-        static_cast<std::uint16_t>((end_frequency_hz + 999'999) / 1'000'000),
-    };
+    const jsize edge_count = env->GetArrayLength(range_edges_hz);
+    if (edge_count < 2 || edge_count % 2 != 0 || edge_count / 2 > MAX_SWEEP_RANGES) return HACKRF_ERROR_INVALID_PARAM;
+    std::array<jlong, MAX_SWEEP_RANGES * 2> edges{};
+    env->GetLongArrayRegion(range_edges_hz, 0, edge_count, edges.data());
+    if (env->ExceptionCheck()) return HACKRF_ERROR_INVALID_PARAM;
+    std::array<std::uint16_t, MAX_SWEEP_RANGES * 2> range_mhz{};
+    int hardware_range_count = 0;
+    for (jsize index = 0; index < edge_count; index += 2) {
+        const auto start = edges[static_cast<std::size_t>(index)];
+        const auto end = edges[static_cast<std::size_t>(index + 1)];
+        if (start < kMinFrequencyHz || end > kMaxFrequencyHz || start >= end) return HACKRF_ERROR_INVALID_PARAM;
+        if (index > 0 && start < edges[static_cast<std::size_t>(index - 1)]) return HACKRF_ERROR_INVALID_PARAM;
+        const auto start_mhz = static_cast<std::uint16_t>(start / 1'000'000);
+        const auto end_mhz = static_cast<std::uint16_t>((end + 999'999) / 1'000'000);
+        if (hardware_range_count > 0 && start_mhz <= range_mhz[static_cast<std::size_t>(hardware_range_count * 2 - 1)]) {
+            auto& previous_end = range_mhz[static_cast<std::size_t>(hardware_range_count * 2 - 1)];
+            if (end_mhz > previous_end) previous_end = end_mhz;
+        } else {
+            range_mhz[static_cast<std::size_t>(hardware_range_count * 2)] = start_mhz;
+            range_mhz[static_cast<std::size_t>(hardware_range_count * 2 + 1)] = end_mhz;
+            hardware_range_count++;
+        }
+    }
     std::lock_guard<std::mutex> guard(session->lifecycle);
     if (session->streaming.load(std::memory_order_acquire)) return HACKRF_ERROR_BUSY;
     reset_capture_state(session);
@@ -217,7 +235,7 @@ Java_dev_rfnotebook_radio_hackrf_NativeHackrf_nativeStartSweep(
     if (result == HACKRF_SUCCESS) {
         const auto step_width = static_cast<std::uint32_t>(sample_rate_hz);
         const auto offset = static_cast<std::uint32_t>(sample_rate_hz / 2);
-        result = hackrf_init_sweep(session->device, range_mhz, 1, BYTES_PER_BLOCK,
+        result = hackrf_init_sweep(session->device, range_mhz.data(), hardware_range_count, BYTES_PER_BLOCK,
                                    step_width, offset, INTERLEAVED);
     }
     if (result == HACKRF_SUCCESS) result = hackrf_start_rx_sweep(session->device, on_receive, session);

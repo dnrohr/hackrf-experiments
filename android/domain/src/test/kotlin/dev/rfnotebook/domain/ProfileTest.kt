@@ -125,4 +125,22 @@ class ProfileTest {
         assertEquals(120L, estimate.estimatedDurationMs)
         assertEquals(240L, estimate.includedBinCount)
     }
+
+    @Test
+    fun exclusionsBecomeExactNonOverlappingHardwareRanges() {
+        val profile = StarterBandProfiles.create(equipment.id).last().copy(
+            ranges = listOf(FrequencyRange(902_000_000, 910_000_000), FrequencyRange(920_000_000, 928_000_000)),
+            excludedRanges = listOf(FrequencyRange(904_000_000, 906_000_000), FrequencyRange(924_000_000, 926_000_000)),
+        )
+
+        assertEquals(
+            listOf(
+                FrequencyRange(902_000_000, 904_000_000),
+                FrequencyRange(906_000_000, 910_000_000),
+                FrequencyRange(920_000_000, 924_000_000),
+                FrequencyRange(926_000_000, 928_000_000),
+            ),
+            profile.effectiveSweepRanges(),
+        )
+    }
 }

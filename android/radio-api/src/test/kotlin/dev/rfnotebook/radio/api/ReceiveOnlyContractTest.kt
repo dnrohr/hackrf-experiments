@@ -55,4 +55,29 @@ class ReceiveOnlyContractTest {
             SweepConfig(902_000_000, 928_000_000, 100_000, 2_000_000, basebandFilterHz = 3_500_000),
         )
     }
+
+    @Test fun `multiple disjoint sweep ranges are accepted`() {
+        RadioLimits.requireValid(
+            SweepConfig(
+                902_000_000,
+                928_000_000,
+                100_000,
+                4_000_000,
+                ranges = listOf(SweepRange(902_000_000, 910_000_000), SweepRange(920_000_000, 928_000_000)),
+            ),
+        )
+    }
+
+    @Test(expected = RadioException::class)
+    fun `overlapping sweep ranges are rejected`() {
+        RadioLimits.requireValid(
+            SweepConfig(
+                902_000_000,
+                928_000_000,
+                100_000,
+                4_000_000,
+                ranges = listOf(SweepRange(902_000_000, 920_000_000), SweepRange(910_000_000, 928_000_000)),
+            ),
+        )
+    }
 }

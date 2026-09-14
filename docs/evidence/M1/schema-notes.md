@@ -2,6 +2,9 @@
 
 Status: In progress
 
+The persistence and backpressure contract is recorded in
+[`ADR 006`](../../adr/006-survey-persistence-and-backpressure.md).
+
 RF Field Notebook uses Room with exported JSON schemas under
 `android/storage/schemas/dev.rfnotebook.storage.NotebookDatabase/`.
 
@@ -24,4 +27,3 @@ and verifies the preserved row and defaults.
 
 No destructive migration fallback is configured. Every future schema version
 must export its schema and add a migration test from every committed version.
-

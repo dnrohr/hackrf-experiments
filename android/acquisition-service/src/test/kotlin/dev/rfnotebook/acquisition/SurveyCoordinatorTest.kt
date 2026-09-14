@@ -60,6 +60,18 @@ class SurveyCoordinatorTest {
         assertTrue(store.state.failureExplanation!!.contains("injected"))
     }
 
+    @Test fun `resume failure returns to paused for another explicit retry`() = runBlocking {
+        val order = mutableListOf<String>()
+        val store = FakeStore(active().copy(status = SurveyStatus.PAUSED), order)
+        val radio = FakeRadio(order, failStart = true)
+        val coordinator = SurveyCoordinator(store, radio) { SurveyTime(store.state.revision + 2, store.state.revision + 2) }
+
+        runCatching { coordinator.command("survey", SurveyCommand.Resume) }
+
+        assertEquals(SurveyStatus.PAUSED, store.state.status)
+        assertEquals(listOf("store.ACTIVE", "radio.start", "store.PAUSED"), order)
+    }
+
     private fun active() = SurveyRuntimeState("survey", SurveyStatus.ACTIVE, 1, 1, 1)
 
     private class FakeStore(var state: SurveyRuntimeState, private val order: MutableList<String>) : SurveyStateStore {
@@ -70,7 +82,14 @@ class SurveyCoordinatorTest {
             this.state = state
             order += "store.${state.status}"
         }
-        override suspend fun recordGap(surveyId: String, reason: GapReason, wallTimeEpochMs: Long, monotonicNs: Long) {
+        override suspend fun recordGap(
+            surveyId: String,
+            reason: GapReason,
+            startedWallTimeEpochMs: Long,
+            startedMonotonicNs: Long,
+            endedWallTimeEpochMs: Long,
+            endedMonotonicNs: Long,
+        ) {
             gap = reason
             order += "gap.$reason"
         }

@@ -11,7 +11,14 @@ import kotlinx.coroutines.sync.withLock
 interface SurveyStateStore {
     suspend fun load(surveyId: String): SurveyRuntimeState
     suspend fun save(previousRevision: Long, state: SurveyRuntimeState)
-    suspend fun recordGap(surveyId: String, reason: GapReason, wallTimeEpochMs: Long, monotonicNs: Long)
+    suspend fun recordGap(
+        surveyId: String,
+        reason: GapReason,
+        startedWallTimeEpochMs: Long,
+        startedMonotonicNs: Long,
+        endedWallTimeEpochMs: Long,
+        endedMonotonicNs: Long,
+    )
 }
 
 interface SurveyRadioController {
@@ -47,9 +54,12 @@ class SurveyCoordinator(
                 radio.start()
             } catch (failure: Throwable) {
                 val failedAt = clock.now()
+                val recoveryCommand = if (command == SurveyCommand.Resume) SurveyCommand.Pause else {
+                    SurveyCommand.Fail(failure.message ?: failure.javaClass.simpleName)
+                }
                 val failed = SurveyStateMachine.transition(
                     transition.state,
-                    SurveyCommand.Fail(failure.message ?: failure.javaClass.simpleName),
+                    recoveryCommand,
                     failedAt.wallTimeEpochMs,
                     failedAt.monotonicNs,
                 ).state
@@ -67,7 +77,12 @@ class SurveyCoordinator(
         val recovery = SurveyStateMachine.recoverAfterProcessDeath(current, now.wallTimeEpochMs, now.monotonicNs)
         if (recovery.changed) {
             store.save(current.revision, recovery.state)
-            recovery.gapReason?.let { store.recordGap(surveyId, it, now.wallTimeEpochMs, now.monotonicNs) }
+            recovery.gapReason?.let {
+                store.recordGap(
+                    surveyId, it, current.lastWallTimeEpochMs, current.lastMonotonicNs,
+                    now.wallTimeEpochMs, now.monotonicNs,
+                )
+            }
         }
         recovery.state
     }

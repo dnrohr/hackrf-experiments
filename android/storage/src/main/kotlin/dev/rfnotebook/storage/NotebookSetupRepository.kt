@@ -18,6 +18,7 @@ data class SurveyLaunch(
     val vgaGainDb: Int,
     val rfAmpEnabled: Boolean,
     val antennaPowerEnabled: Boolean,
+    val scanRanges: List<FrequencyRange>,
 )
 
 data class SurveySummary(
@@ -25,6 +26,8 @@ data class SurveySummary(
     val aggregateCount: Long,
     val locationFixCount: Long,
     val gapCount: Long,
+    val gaps: List<AcquisitionGapEntity>,
+    val latestHealth: HealthSnapshotEntity?,
 )
 
 class NotebookSetupRepository(private val dao: NotebookDao) {
@@ -34,6 +37,8 @@ class NotebookSetupRepository(private val dao: NotebookDao) {
         val equipment = requireNotNull(dao.equipmentProfile(survey.equipmentProfileVersionId))
         val radio = requireNotNull(dao.radioDevice(equipment.radioDeviceId))
         val ranges = dao.bandRanges(band.versionId).filter { it.kind == "INCLUDE" }
+        val exclusions = dao.bandRanges(band.versionId).filter { it.kind == "EXCLUDE" }
+        val scanRanges = effectiveRanges(ranges, exclusions)
         return SurveyLaunch(
             survey.id,
             radio.serialSuffix,
@@ -46,6 +51,7 @@ class NotebookSetupRepository(private val dao: NotebookDao) {
             equipment.vgaGainDb,
             equipment.rfAmpEnabled,
             equipment.antennaPowerEnabled,
+            scanRanges,
         )
     }
 
@@ -62,6 +68,7 @@ class NotebookSetupRepository(private val dao: NotebookDao) {
         antennaName: String = "Uncalibrated antenna",
         adapterNotes: String = "",
         equipmentNotes: String = "Relative observations only; this profile is not calibrated.",
+        photoReference: String? = null,
         bandStartHz: Long? = null,
         bandEndHz: Long? = null,
         binWidthHz: Long = 100_000,
@@ -69,6 +76,7 @@ class NotebookSetupRepository(private val dao: NotebookDao) {
         thresholdSnrDb: Float = 8f,
         minimumBandwidthHz: Long = 100_000,
         excludedRanges: List<FrequencyRange> = emptyList(),
+        includedRanges: List<FrequencyRange>? = null,
     ): SurveyLaunch {
         require(serialSuffix.isNotBlank())
         val radioId = "radio:$serialSuffix"
@@ -86,6 +94,9 @@ class NotebookSetupRepository(private val dao: NotebookDao) {
             ),
         )
         val profileId = "equipment:$serialSuffix"
+        val requestedRanges = includedRanges ?: if (bandStartHz != null && bandEndHz != null) {
+            listOf(FrequencyRange(bandStartHz, bandEndHz))
+        } else null
         val requestedEquipment = EquipmentProfile.conservativeDefault(profileId, radioId).copy(
             createdAtEpochMs = nowEpochMs,
             sampleRateHz = sampleRateHz,
@@ -95,12 +106,16 @@ class NotebookSetupRepository(private val dao: NotebookDao) {
             antennaName = antennaName.ifBlank { "Uncalibrated antenna" },
             adapterNotes = adapterNotes,
             notes = equipmentNotes,
-            antennaBands = if (bandStartHz != null && bandEndHz != null) listOf(FrequencyRange(bandStartHz, bandEndHz)) else emptyList(),
+            photoReference = photoReference?.takeIf { it.isNotBlank() },
+            antennaBands = requestedRanges.orEmpty(),
         )
         val priorEquipment = dao.activeEquipmentProfiles().filter { it.profileId == profileId }.maxByOrNull { it.version }
+        val sameEquipment = priorEquipment?.toDomain()?.let { prior ->
+            prior.copy(version = 1, createdAtEpochMs = nowEpochMs, retiredAtEpochMs = null) == requestedEquipment
+        } == true
         val equipmentEntity = if (priorEquipment == null) {
             requestedEquipment.toEntity("$profileId:v1")
-        } else if (priorEquipment.toDomain().compareWith(requestedEquipment).isComparable) {
+        } else if (sameEquipment) {
             priorEquipment
         } else {
             dao.retireEquipmentProfile(priorEquipment.versionId, nowEpochMs)
@@ -108,8 +123,8 @@ class NotebookSetupRepository(private val dao: NotebookDao) {
         }
         dao.insertEquipmentProfile(equipmentEntity)
         StarterBandProfiles.create(profileId).map { profile ->
-            if (profile.name == bandName && bandStartHz != null && bandEndHz != null) profile.copy(
-                ranges = listOf(FrequencyRange(bandStartHz, bandEndHz)),
+            if (profile.name == bandName && requestedRanges != null) profile.copy(
+                ranges = requestedRanges,
                 binWidthHz = binWidthHz,
                 targetRevisitMs = targetRevisitMs,
                 thresholdSnrDb = thresholdSnrDb,
@@ -166,6 +181,8 @@ class NotebookSetupRepository(private val dao: NotebookDao) {
         }
         val band = dao.activeBandProfiles().first { it.name == bandName }
         val ranges = dao.bandRanges(band.versionId).filter { it.kind == "INCLUDE" }
+        val exclusions = dao.bandRanges(band.versionId).filter { it.kind == "EXCLUDE" }
+        val scanRanges = effectiveRanges(ranges, exclusions)
         val surveyId = UUID.randomUUID().toString()
         dao.insertSurvey(
             SurveyEntity(
@@ -204,6 +221,7 @@ class NotebookSetupRepository(private val dao: NotebookDao) {
             equipmentEntity.vgaGainDb,
             equipmentEntity.rfAmpEnabled,
             equipmentEntity.antennaPowerEnabled,
+            scanRanges,
         )
     }
 
@@ -212,7 +230,21 @@ class NotebookSetupRepository(private val dao: NotebookDao) {
         dao.aggregateCount(surveyId),
         dao.locationFixCount(surveyId),
         dao.gapCount(surveyId),
+        dao.surveyGaps(surveyId),
+        dao.latestHealth(surveyId),
     )
+
+    private fun effectiveRanges(
+        included: List<BandRangeEntity>,
+        excluded: List<BandRangeEntity>,
+    ): List<FrequencyRange> {
+        val exclusions = excluded.map { FrequencyRange(it.startHz, it.endHz) }
+        return included
+            .map { FrequencyRange(it.startHz, it.endHz) }
+            .flatMap { range -> range.excluding(exclusions.filter(range::contains)) }
+            .sortedBy { it.startHz }
+            .also { require(it.isNotEmpty() && it.size <= 10) { "Band must produce 1–10 hardware sweep ranges" } }
+    }
 
     private fun EquipmentProfile.toEntity(versionId: String) = EquipmentProfileEntity(
         versionId = versionId,

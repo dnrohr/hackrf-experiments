@@ -76,8 +76,17 @@ interface NotebookDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAggregates(aggregates: List<SpectrumAggregateEntity>)
 
+    @Transaction
+    suspend fun insertAggregateBatch(fix: LocationFixEntity?, aggregates: List<SpectrumAggregateEntity>) {
+        fix?.let { insertLocationFix(it) }
+        insertAggregates(aggregates)
+    }
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertGap(gap: AcquisitionGapEntity)
+
+    @Query("UPDATE acquisition_gaps SET endedWallTimeEpochMs = :wallTimeEpochMs, endedMonotonicNs = :monotonicNs WHERE surveyId = :surveyId AND endedMonotonicNs IS NULL")
+    suspend fun closeOpenGaps(surveyId: String, wallTimeEpochMs: Long, monotonicNs: Long): Int
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertHealthSnapshot(snapshot: HealthSnapshotEntity)
@@ -88,12 +97,16 @@ interface NotebookDao {
     @Query("SELECT COUNT(*) FROM acquisition_gaps WHERE surveyId = :surveyId")
     suspend fun gapCount(surveyId: String): Long
 
+    @Query("SELECT * FROM acquisition_gaps WHERE surveyId = :surveyId ORDER BY startedMonotonicNs")
+    suspend fun surveyGaps(surveyId: String): List<AcquisitionGapEntity>
+
     @Query("SELECT COUNT(*) FROM location_fixes WHERE surveyId = :surveyId")
     suspend fun locationFixCount(surveyId: String): Long
 
-    @Query("UPDATE surveys SET locationCoverageRatio = :locationCoverageRatio, droppedFrameCount = :droppedFrameCount, overrunCount = :overrunCount, malformedFrameCount = :malformedFrameCount, staleFixCount = :staleFixCount, unlocatedObservationCount = :unlocatedObservationCount WHERE id = :surveyId")
+    @Query("UPDATE surveys SET distanceMeters = :distanceMeters, locationCoverageRatio = :locationCoverageRatio, droppedFrameCount = :droppedFrameCount, overrunCount = :overrunCount, malformedFrameCount = :malformedFrameCount, staleFixCount = :staleFixCount, unlocatedObservationCount = :unlocatedObservationCount WHERE id = :surveyId")
     suspend fun updateSurveyHealth(
         surveyId: String,
+        distanceMeters: Double,
         locationCoverageRatio: Double,
         droppedFrameCount: Long,
         overrunCount: Long,
@@ -145,4 +158,7 @@ interface NotebookDao {
 
     @Query("SELECT * FROM health_snapshots WHERE surveyId = :surveyId ORDER BY monotonicNs DESC LIMIT 1")
     fun observeLatestHealth(surveyId: String): Flow<HealthSnapshotEntity?>
+
+    @Query("SELECT * FROM health_snapshots WHERE surveyId = :surveyId ORDER BY monotonicNs DESC LIMIT 1")
+    suspend fun latestHealth(surveyId: String): HealthSnapshotEntity?
 }

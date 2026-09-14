@@ -39,7 +39,52 @@ class RoomSurveyStateStore(private val dao: NotebookDao) : SurveyStateStore {
         )
     }
 
-    override suspend fun recordGap(surveyId: String, reason: GapReason, wallTimeEpochMs: Long, monotonicNs: Long) {
+    override suspend fun recordGap(
+        surveyId: String,
+        reason: GapReason,
+        startedWallTimeEpochMs: Long,
+        startedMonotonicNs: Long,
+        endedWallTimeEpochMs: Long,
+        endedMonotonicNs: Long,
+    ) {
+        insertGap(
+            surveyId, reason, startedWallTimeEpochMs, startedMonotonicNs,
+            endedWallTimeEpochMs, endedMonotonicNs, 0, null,
+        )
+    }
+
+    suspend fun recordOpenGap(surveyId: String, reason: GapReason, wallTimeEpochMs: Long, monotonicNs: Long) {
+        insertGap(surveyId, reason, wallTimeEpochMs, monotonicNs, null, null, 0, null)
+    }
+
+    suspend fun recordCountedGap(
+        surveyId: String,
+        reason: GapReason,
+        wallTimeEpochMs: Long,
+        monotonicNs: Long,
+        droppedUnitCount: Long,
+        explanation: String,
+    ) {
+        insertGap(
+            surveyId, reason, wallTimeEpochMs, monotonicNs, wallTimeEpochMs, monotonicNs,
+            droppedUnitCount, explanation,
+        )
+    }
+
+    suspend fun closeOpenGaps(surveyId: String, wallTimeEpochMs: Long, monotonicNs: Long) {
+        dao.closeOpenGaps(surveyId, wallTimeEpochMs, monotonicNs)
+    }
+
+    private suspend fun insertGap(
+        surveyId: String,
+        reason: GapReason,
+        wallTimeEpochMs: Long,
+        monotonicNs: Long,
+        endedWallTimeEpochMs: Long?,
+        endedMonotonicNs: Long?,
+        droppedUnitCount: Long,
+        suppliedExplanation: String?,
+    ) {
         dao.insertGap(
             AcquisitionGapEntity(
                 id = UUID.randomUUID().toString(),
@@ -47,10 +92,10 @@ class RoomSurveyStateStore(private val dao: NotebookDao) : SurveyStateStore {
                 reason = reason.name,
                 startedWallTimeEpochMs = wallTimeEpochMs,
                 startedMonotonicNs = monotonicNs,
-                endedWallTimeEpochMs = wallTimeEpochMs,
-                endedMonotonicNs = monotonicNs,
-                droppedUnitCount = 0,
-                explanation = "Survey recovered after ${reason.name.lowercase().replace('_', ' ')}",
+                endedWallTimeEpochMs = endedWallTimeEpochMs,
+                endedMonotonicNs = endedMonotonicNs,
+                droppedUnitCount = droppedUnitCount,
+                explanation = suppliedExplanation ?: "Survey recovered after ${reason.name.lowercase().replace('_', ' ')}",
             ),
         )
     }

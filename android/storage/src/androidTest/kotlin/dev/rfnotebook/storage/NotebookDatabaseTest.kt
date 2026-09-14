@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.room.testing.MigrationTestHelper
+import dev.rfnotebook.domain.FrequencyRange
 import java.util.UUID
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -46,7 +47,12 @@ class NotebookDatabaseTest {
         dao.insertBandProfile(band)
         dao.insertBandRanges(listOf(BandRangeEntity(band.versionId, "INCLUDE", 0, 902_000_000, 928_000_000)))
         dao.insertSurvey(survey)
-        dao.insertAggregates(listOf(SpectrumAggregateEntity(
+        val fix = LocationFixEntity(
+            id = "fix", surveyId = survey.id, wallTimeEpochMs = 1_000, monotonicNs = 2_000,
+            latitude = 0.0, longitude = 0.0, horizontalAccuracyM = 5f, altitudeM = null,
+            speedMps = null, bearingDegrees = null, provider = "test", isInterpolated = false,
+        )
+        dao.insertAggregateBatch(null, listOf(SpectrumAggregateEntity(
             surveyId = survey.id,
             timeBucketStartEpochMs = 1_000,
             frequencyBinHz = 915_000_000,
@@ -57,6 +63,18 @@ class NotebookDatabaseTest {
             sampleCount = 10,
             locationFixId = null,
             locationState = "MISSING",
+        )))
+        dao.insertAggregateBatch(fix, listOf(SpectrumAggregateEntity(
+            surveyId = survey.id,
+            timeBucketStartEpochMs = 2_000,
+            frequencyBinHz = 915_100_000,
+            minimumPowerDbfs = -91f,
+            medianPowerDbfs = -86f,
+            maximumPowerDbfs = -71f,
+            noiseEstimateDbfs = -93f,
+            sampleCount = 8,
+            locationFixId = fix.id,
+            locationState = "FRESH",
         )))
         dao.insertHealthSnapshot(HealthSnapshotEntity(
             surveyId = survey.id,
@@ -79,8 +97,17 @@ class NotebookDatabaseTest {
             thermalStatus = 0,
             warning = null,
         ))
+        dao.insertGap(AcquisitionGapEntity(
+            id = "gap", surveyId = survey.id, reason = "USB_DETACH",
+            startedWallTimeEpochMs = 3_000, startedMonotonicNs = 4_000,
+            endedWallTimeEpochMs = null, endedMonotonicNs = null,
+            droppedUnitCount = 0, explanation = "detached",
+        ))
+        dao.closeOpenGaps(survey.id, 5_000, 9_000)
 
         assertEquals(8, dao.survey(survey.id)!!.overrunCount)
+        assertEquals(1, dao.locationFixCount(survey.id))
+        assertEquals(9_000L, dao.surveyGaps(survey.id).single().endedMonotonicNs)
     }
 
     @Test
@@ -96,6 +123,35 @@ class NotebookDatabaseTest {
         assertEquals(24, versions.last().lnaGainDb)
         assertEquals("equipment:suffix:v1", database.notebookDao().survey(first.surveyId)!!.equipmentProfileVersionId)
         assertEquals("equipment:suffix:v2", database.notebookDao().survey(second.surveyId)!!.equipmentProfileVersionId)
+    }
+
+    @Test
+    fun referencedMetadataEditAlsoCreatesNewEquipmentVersion() = kotlinx.coroutines.runBlocking {
+        val repository = NotebookSetupRepository(database.notebookDao())
+
+        repository.createStarterSurvey("suffix", "HackRF One", 1, 1, "first", equipmentNotes = "first note")
+        repository.createStarterSurvey("suffix", "HackRF One", 2, 2, "second", equipmentNotes = "changed note")
+
+        assertEquals(listOf(1, 2), database.notebookDao().equipmentProfileVersions("equipment:suffix").map { it.version })
+    }
+
+    @Test
+    fun launchUsesIncludedRangesMinusPersistedExclusions() = kotlinx.coroutines.runBlocking {
+        val launch = NotebookSetupRepository(database.notebookDao()).createStarterSurvey(
+            "suffix",
+            "HackRF One",
+            1,
+            1,
+            "excluded",
+            bandStartHz = 902_000_000,
+            bandEndHz = 928_000_000,
+            excludedRanges = listOf(FrequencyRange(910_000_000, 912_000_000)),
+        )
+
+        assertEquals(
+            listOf(FrequencyRange(902_000_000, 910_000_000), FrequencyRange(912_000_000, 928_000_000)),
+            launch.scanRanges,
+        )
     }
 
     @Test

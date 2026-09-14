@@ -11,7 +11,7 @@ internal object NativeHackrf {
         lnaGainDb: Int, vgaGainDb: Int, rfAmpEnabled: Boolean, antennaPowerEnabled: Boolean,
     ): Int
     external fun nativeStartSweep(
-        handle: Long, startFrequencyHz: Long, endFrequencyHz: Long, binWidthHz: Int, sampleRateHz: Int,
+        handle: Long, rangeEdgesHz: LongArray, binWidthHz: Int, sampleRateHz: Int,
         basebandFilterHz: Int, lnaGainDb: Int, vgaGainDb: Int,
         rfAmpEnabled: Boolean, antennaPowerEnabled: Boolean,
     ): Int

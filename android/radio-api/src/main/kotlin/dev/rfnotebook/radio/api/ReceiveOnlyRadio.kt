@@ -61,6 +61,8 @@ data class RxConfig(
     val antennaPowerEnabled: Boolean = false,
 )
 
+data class SweepRange(val startFrequencyHz: Long, val endFrequencyHz: Long)
+
 data class SweepConfig(
     val startFrequencyHz: Long,
     val endFrequencyHz: Long,
@@ -71,6 +73,7 @@ data class SweepConfig(
     val vgaGainDb: Int = 0,
     val rfAmpEnabled: Boolean = false,
     val antennaPowerEnabled: Boolean = false,
+    val ranges: List<SweepRange> = listOf(SweepRange(startFrequencyHz, endFrequencyHz)),
 )
 
 fun interface SampleSink { fun onSamples(samples: ByteArray, monotonicNanos: Long) }
@@ -105,10 +108,16 @@ object RadioLimits {
     }
 
     fun requireValid(config: SweepConfig) {
-        requireSupported(config.startFrequencyHz in MIN_FREQUENCY_HZ until config.endFrequencyHz) {
-            "Sweep start must be within the device range and below its end"
+        requireSupported(config.ranges.isNotEmpty() && config.ranges.size <= MAX_SWEEP_RANGES) {
+            "Sweep requires 1–$MAX_SWEEP_RANGES ranges"
         }
-        requireSupported(config.endFrequencyHz <= MAX_FREQUENCY_HZ) { "Sweep end exceeds the device range" }
+        requireSupported(config.ranges.all { it.startFrequencyHz in MIN_FREQUENCY_HZ until it.endFrequencyHz }) {
+            "Every sweep start must be within the device range and below its end"
+        }
+        requireSupported(config.ranges.all { it.endFrequencyHz <= MAX_FREQUENCY_HZ }) { "A sweep end exceeds the device range" }
+        requireSupported(
+            config.ranges.sortedBy { it.startFrequencyHz }.zipWithNext().none { (a, b) -> a.endFrequencyHz > b.startFrequencyHz },
+        ) { "Sweep ranges must not overlap" }
         requireSupported(config.binWidthHz > 0) { "Sweep bin width must be positive" }
         requireSupported(config.sampleRateHz in supportedSampleRatesHz) {
             "Sample rate ${config.sampleRateHz} Hz is unsupported; choose ${supportedSampleRatesHz.sorted().joinToString()} Hz"
@@ -131,4 +140,6 @@ object RadioLimits {
     private inline fun requireSupported(value: Boolean, message: () -> String) {
         if (!value) throw RadioException(RadioErrorCode.UNSUPPORTED_CONFIGURATION, message())
     }
+
+    private const val MAX_SWEEP_RANGES = 10
 }

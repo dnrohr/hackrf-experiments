@@ -16,8 +16,8 @@ hardware pending are not acceptance claims.
 | FR-EQP-002 | equipment gains/filter/rate/power columns | schema validation and profile tests | M1 settings readback pending |
 | FR-EQP-003 | `EquipmentProfile.compareWith` with reason set | `ProfileTest.comparabilityReturnsEveryMeasurementChangingReason` | Not hardware-dependent |
 | FR-EQP-004 | `conservativeDefault`; UI relative-power warning | `ProfileTest.conservativeDefaultsNeverEnablePoweredRfFeatures` | M1 settings readback pending |
-| FR-BAND-001 | `FrequencyRange`; normalized band-range table | overlap validation tests; Room schema test | Not hardware-dependent |
-| FR-BAND-002 | versioned ranges/exclusions/bin/revisit/threshold/minimum fields | `ProfileTest` | Not hardware-dependent |
+| FR-BAND-001 | `FrequencyRange`; normalized band-range table; one-to-ten-range native sweep | range parsing/effective-range/radio validation tests; Room schema test | Not hardware-dependent |
+| FR-BAND-002 | versioned ranges/exclusions/bin/revisit/threshold/minimum fields; exact exclusion filtering | `ProfileTest`; connected launch-range test | Not hardware-dependent |
 | FR-BAND-003 | cycle estimator and preflight display | `ProfileTest.cycleEstimatorAccountsForExcludedSpectrum` | M1 observed cycle pending |
 | FR-BAND-004 | `NotebookSetupRepository` creates/retires immutable versions | connected profile-version test | Not hardware-dependent |
 | FR-BAND-005 | five editable starter definitions and receive-only disclaimer | `ProfileTest.starterProfilesIncludeAllSpecifiedExplorationRegions` | Not hardware-dependent |
@@ -30,21 +30,20 @@ hardware pending are not acceptance claims.
 | FR-ACQ-002 | immutable profile version per survey; no auto-setting path | domain/Room version tests | M1 settings readback pending |
 | FR-ACQ-003 | callback monotonic time carried through each bucket | accumulator and location tests | M1 run pending |
 | FR-ACQ-004 | native, malformed, overrun, stale-fix, service-gap counters | bounded-pipeline tests | pressure/detach run pending |
-| FR-ACQ-005 | independent bounded native/processing/persistence stages; 1 Hz UI | bounded-pipeline tests | pressure run pending |
+| FR-ACQ-005 | independent bounded native/processing/persistence stages; atomic fix/batch writes; 1 Hz UI | bounded-pipeline and connected Room tests | pressure run pending |
 | FR-ACQ-006 | survey pipeline persists only summaries/fixes/health | receive-only script and schema inspection | M1 run pending |
 | NFR-PERF-001 | callback only offers to memory queue; database on IO workers | coordinator/pipeline unit tests | 30-minute run pending |
 | NFR-PERF-002 | health UI state published at 1 Hz | source inspection | UI observation pending |
 | NFR-PERF-003 | bounded nonblocking callback path | M0 8 MS/s evidence; queue tests | M1 8 MS/s check pending |
 | NFR-PERF-004 | three bounded stages and per-stage counters | `BoundedPipelineTest` | pressure run pending |
-| NFR-PERF-005 | `StorageGuard` estimate and 256 MiB reserve | storage-guard test | low-storage run pending |
+| NFR-PERF-005 | `StorageGuard` estimate, 256 MiB reserve, and orderly automatic stop below reserve | storage-guard test | low-storage run pending |
 | NFR-PERF-006 | battery/thermal snapshots and visible warnings without retuning | source inspection; coordinator tests | thermal/battery observation pending |
 
 ## Validation evidence
 
-- `./gradlew.bat lint test assembleDebug`: passed 2026-09-14.
+- `./gradlew.bat lint test assembleDebug`: passed 2026-09-14 after the multi-range, atomic-persistence, health-UI, and orderly low-storage-stop changes.
 - Pixel 8a, Android 17, direct USB-C: storage connected tests passed (three
   tests, including schema v1→v2) and app regression tests passed (three tests).
 - `scripts/Test-ReceiveOnly.ps1`, `scripts/Test-NativeExports.ps1`, and
-  `scripts/Test-Planning.ps1`: passed at checkpoint `3381762`; rerun required at
-  handoff.
-
+  `scripts/Test-Planning.ps1`: passed 2026-09-14 after the multi-range,
+  persistence, health, and recovery changes.

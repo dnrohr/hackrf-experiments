@@ -41,6 +41,7 @@ import dev.rfnotebook.radio.api.RadioException
 import dev.rfnotebook.radio.api.RadioErrorCode
 import dev.rfnotebook.radio.api.SweepConfig
 import dev.rfnotebook.radio.api.SweepSink
+import dev.rfnotebook.radio.api.SweepRange
 import dev.rfnotebook.radio.hackrf.AndroidHackrfRadio
 import dev.rfnotebook.radio.hackrf.NativeRadioSession
 import dev.rfnotebook.signal.processing.HackrfSweepProcessor
@@ -52,6 +53,7 @@ import dev.rfnotebook.storage.LocationFixEntity
 import dev.rfnotebook.storage.NotebookDatabase
 import dev.rfnotebook.storage.SpectrumAggregateEntity
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CancellationException
@@ -76,6 +78,15 @@ data class SurveyAcquisitionState(
     val locationAccuracyM: Float? = null,
     val health: AcquisitionHealth? = null,
     val warning: String? = null,
+    val startedAtEpochMs: Long? = null,
+    val distanceMeters: Double = 0.0,
+    val configuredRanges: String = "—",
+    val availableStorageBytes: Long? = null,
+    val estimatedRemainingBytes: Long? = null,
+    val batteryPercent: Int? = null,
+    val thermalStatus: Int? = null,
+    val currentRange: String = "—",
+    val locationFixAgeMs: Long? = null,
 )
 
 object SurveyAcquisitionStatus {
@@ -108,11 +119,16 @@ class SurveyAcquisitionService : Service() {
     private val locatedBatches = AtomicLong()
     private val totalBatches = AtomicLong()
     private val unlocatedObservations = AtomicLong()
+    private val routeDistanceMillimeters = AtomicLong()
+    private val stopping = AtomicBoolean()
+    private val currentRange = AtomicReference<Pair<Long, Long>?>(null)
+    private var lastRouteLocation: Location? = null
     private var estimatedSurveyBytes = 0L
     private var foregroundReady = false
     private var receiverRegistered = false
     private var sampleRateHz = 0
     private var binWidthHz = 0
+    private var scanRanges: List<SweepRange> = emptyList()
     private var lastNativeDrops = 0L
     private var lastCallbackErrors = 0L
     private var lastBytes = 0L
@@ -153,9 +169,16 @@ class SurveyAcquisitionService : Service() {
             surveyId = requireNotNull(intent.getStringExtra(EXTRA_SURVEY_ID)) { "Missing survey ID" }
             sampleRateHz = intent.getIntExtra(EXTRA_SAMPLE_RATE_HZ, 0)
             binWidthHz = intent.getIntExtra(EXTRA_BIN_WIDTH_HZ, 0)
+            val rangeEdges = intent.getLongArrayExtra(EXTRA_SCAN_RANGES_HZ)
+                ?: longArrayOf(
+                    intent.getLongExtra(EXTRA_START_FREQUENCY_HZ, 0),
+                    intent.getLongExtra(EXTRA_END_FREQUENCY_HZ, 0),
+                )
+            require(rangeEdges.isNotEmpty() && rangeEdges.size % 2 == 0) { "Malformed sweep range list" }
+            scanRanges = rangeEdges.toList().chunked(2).map { (start, end) -> SweepRange(start, end) }
             val config = SweepConfig(
-                intent.getLongExtra(EXTRA_START_FREQUENCY_HZ, 0),
-                intent.getLongExtra(EXTRA_END_FREQUENCY_HZ, 0),
+                scanRanges.minOf { it.startFrequencyHz },
+                scanRanges.maxOf { it.endFrequencyHz },
                 binWidthHz,
                 sampleRateHz,
                 intent.getIntExtra(EXTRA_BASEBAND_FILTER_HZ, 0),
@@ -163,10 +186,13 @@ class SurveyAcquisitionService : Service() {
                 intent.getIntExtra(EXTRA_VGA_GAIN_DB, 0),
                 intent.getBooleanExtra(EXTRA_RF_AMP_ENABLED, false),
                 intent.getBooleanExtra(EXTRA_ANTENNA_POWER_ENABLED, false),
+                scanRanges,
             )
             val suffix = requireNotNull(intent.getStringExtra(EXTRA_SERIAL_SUFFIX)) { "Missing selected serial suffix" }
             check(config.binWidthHz > 0) { "Sweep bin width must be positive" }
-            val bins = ((config.endFrequencyHz - config.startFrequencyHz) / config.binWidthHz).coerceAtLeast(1)
+            val bins = config.ranges.sumOf {
+                (it.endFrequencyHz - it.startFrequencyHz + config.binWidthHz - 1) / config.binWidthHz
+            }.coerceAtLeast(1)
             estimatedSurveyBytes = bins * DEFAULT_SURVEY_SECONDS * ESTIMATED_AGGREGATE_BYTES
             val initialStorage = StorageGuard.assess(StatFs(filesDir.absolutePath).availableBytes, estimatedSurveyBytes)
             check(initialStorage.canStart) { initialStorage.explanation }
@@ -192,7 +218,17 @@ class SurveyAcquisitionService : Service() {
                 SurveyStatus.PAUSED -> coordinator.command(surveyId, SurveyCommand.Resume)
                 else -> error("Survey ${persisted.status.lowercase()} cannot be started")
             }
-            SurveyAcquisitionStatus.update(SurveyAcquisitionState(surveyId, state.status))
+            val activeSurvey = requireNotNull(database.notebookDao().survey(surveyId))
+            routeDistanceMillimeters.set((activeSurvey.distanceMeters * 1_000.0).toLong())
+            SurveyAcquisitionStatus.update(
+                SurveyAcquisitionStatus.state.value.copy(
+                    surveyId = surveyId,
+                    status = state.status,
+                    startedAtEpochMs = activeSurvey.startedAtEpochMs,
+                    distanceMeters = activeSurvey.distanceMeters,
+                    configuredRanges = scanRanges.joinToString { "${it.startFrequencyHz / 1_000_000.0}–${it.endFrequencyHz / 1_000_000.0} MHz" },
+                ),
+            )
             updateNotification("Survey active • RX only")
         } catch (failure: Throwable) {
             failVisible(failure)
@@ -210,14 +246,22 @@ class SurveyAcquisitionService : Service() {
         if (!::coordinator.isInitialized) return
         try {
             val state = coordinator.command(surveyId, SurveyCommand.Resume)
+            RoomSurveyStateStore(database.notebookDao()).closeOpenGaps(
+                surveyId, System.currentTimeMillis(), SystemClock.elapsedRealtimeNanos(),
+            )
             SurveyAcquisitionStatus.update(SurveyAcquisitionStatus.state.value.copy(status = state.status, warning = null))
             updateNotification("Survey active • RX only")
         } catch (failure: Throwable) {
-            failVisible(failure)
+            val explanation = if (failure is RadioException) "${failure.code}: ${failure.message}" else failure.message ?: failure.javaClass.simpleName
+            SurveyAcquisitionStatus.update(
+                SurveyAcquisitionStatus.state.value.copy(status = SurveyStatus.PAUSED, warning = "Resume failed: $explanation"),
+            )
+            updateNotification("Resume failed • survey remains paused")
         }
     }
 
     private suspend fun stopSurvey() {
+        if (!stopping.compareAndSet(false, true)) return
         if (::coordinator.isInitialized) {
             val current = database.notebookDao().survey(surveyId)
             if (current?.status == SurveyStatus.ACTIVE.name || current?.status == SurveyStatus.PAUSED.name) {
@@ -225,6 +269,9 @@ class SurveyAcquisitionService : Service() {
             }
             stopWorkers()
             persistFinalHealth()
+            RoomSurveyStateStore(database.notebookDao()).closeOpenGaps(
+                surveyId, System.currentTimeMillis(), SystemClock.elapsedRealtimeNanos(),
+            )
             coordinator.command(surveyId, SurveyCommand.Finalize)
             radioController.close()
             SurveyAcquisitionStatus.update(SurveyAcquisitionStatus.state.value.copy(status = SurveyStatus.COMPLETE))
@@ -238,7 +285,7 @@ class SurveyAcquisitionService : Service() {
         val current = database.notebookDao().survey(surveyId)
         if (current?.status == SurveyStatus.ACTIVE.name) coordinator.command(surveyId, SurveyCommand.Pause)
         radioController.markRecoverable("USB detached")
-        RoomSurveyStateStore(database.notebookDao()).recordGap(
+        RoomSurveyStateStore(database.notebookDao()).recordOpenGap(
             surveyId, GapReason.USB_DETACH, System.currentTimeMillis(), SystemClock.elapsedRealtimeNanos(),
         )
         counters.increment(HealthCounter.SERVICE_GAP)
@@ -256,7 +303,15 @@ class SurveyAcquisitionService : Service() {
                 try {
                     val result = HackrfSweepProcessor.process(raw.bytes, sampleRateHz, binWidthHz)
                     counters.increment(HealthCounter.MALFORMED_FRAME, result.malformedBlocks.toLong())
-                    result.frames.forEach { processingQueue.offer(TimedFrame(it, raw.wallTimeEpochMs, raw.monotonicNs)) }
+                    result.frames.asSequence()
+                        .map { frame -> frame.copy(bins = frame.bins.filter { bin ->
+                            scanRanges.any { range -> bin.frequencyHz in range.startFrequencyHz until range.endFrequencyHz }
+                        }) }
+                        .filter { it.bins.isNotEmpty() }
+                        .forEach {
+                            currentRange.set(it.lowFrequencyHz to it.highFrequencyHz)
+                            processingQueue.offer(TimedFrame(it, raw.wallTimeEpochMs, raw.monotonicNs))
+                        }
                 } catch (_: IllegalArgumentException) {
                     counters.increment(HealthCounter.MALFORMED_FRAME)
                 }
@@ -279,8 +334,7 @@ class SurveyAcquisitionService : Service() {
                 when (val item = persistenceQueue.receive()) {
                     is PersistItem.Fix -> database.notebookDao().insertLocationFix(item.value)
                     is PersistItem.Aggregates -> {
-                        item.fix?.let { database.notebookDao().insertLocationFix(it) }
-                        database.notebookDao().insertAggregates(item.values)
+                        database.notebookDao().insertAggregateBatch(item.fix, item.values)
                         aggregatesPersisted += item.values.size
                     }
                 }
@@ -314,12 +368,11 @@ class SurveyAcquisitionService : Service() {
             val battery = getSystemService(BatteryManager::class.java)
                 .getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY).takeIf { it in 0..100 }
             val thermal = getSystemService(PowerManager::class.java).currentThermalStatus
-            val warning = buildList {
-                if (health.hasDataLoss) add("Acquisition loss recorded")
-                if (storage < StorageGuard.DEFAULT_RESERVE_BYTES) add("Storage reserve is low")
-                if (battery != null && battery <= LOW_BATTERY_PERCENT) add("Battery is low; orderly Stop is available")
-                if (thermal >= PowerManager.THERMAL_STATUS_MODERATE) add("Thermal pressure detected; measurement settings remain fixed")
-            }.joinToString("; ").ifBlank { null }
+            val warning = HealthWarningPolicy.warning(
+                health, storage, battery, thermal, PowerManager.THERMAL_STATUS_MODERATE,
+            )
+            val newestFix = latestFixes.get().lastOrNull()
+            val fixAgeMs = newestFix?.let { (nowNs - it.monotonicNs).coerceAtLeast(0) / 1_000_000 }
             database.notebookDao().insertHealthSnapshot(
                 HealthSnapshotEntity(
                     surveyId = surveyId,
@@ -345,6 +398,7 @@ class SurveyAcquisitionService : Service() {
             )
             database.notebookDao().updateSurveyHealth(
                 surveyId = surveyId,
+                distanceMeters = routeDistanceMillimeters.get() / 1_000.0,
                 locationCoverageRatio = locatedBatches.get().toDouble() / totalBatches.get().coerceAtLeast(1),
                 droppedFrameCount = health.droppedNativeUnits + health.droppedProcessingUnits + health.droppedPersistenceUnits,
                 overrunCount = health.overrunCount,
@@ -358,13 +412,38 @@ class SurveyAcquisitionService : Service() {
                     aggregatesPersisted = aggregatesPersisted,
                     health = health,
                     warning = warning,
+                    distanceMeters = routeDistanceMillimeters.get() / 1_000.0,
+                    availableStorageBytes = storage,
+                    estimatedRemainingBytes = (estimatedSurveyBytes - aggregatesPersisted * ESTIMATED_AGGREGATE_BYTES).coerceAtLeast(0),
+                    batteryPercent = battery,
+                    thermalStatus = thermal,
+                    currentRange = currentRange.get()?.let { (low, high) ->
+                        "${low / 1_000_000.0}–${high / 1_000_000.0} MHz"
+                    } ?: "—",
+                    locationFixAgeMs = fixAgeMs,
                 ),
             )
             updateNotification("RX ${bytesPerSecond / 1_000_000} MB/s • ${health.droppedNativeUnits + health.droppedProcessingUnits + health.droppedPersistenceUnits} dropped")
+            if (storage < StorageGuard.DEFAULT_RESERVE_BYTES) {
+                RoomSurveyStateStore(database.notebookDao()).recordCountedGap(
+                    surveyId,
+                    GapReason.LOW_STORAGE,
+                    System.currentTimeMillis(),
+                    SystemClock.elapsedRealtimeNanos(),
+                    0,
+                    "Available storage fell below the fixed ${StorageGuard.DEFAULT_RESERVE_BYTES}-byte reserve; survey stopped orderly",
+                )
+                scope.launch { stopSurvey() }
+                return
+            }
         }
     }
 
     private fun onLocation(location: Location) {
+        lastRouteLocation?.let { previous ->
+            routeDistanceMillimeters.addAndGet((previous.distanceTo(location) * 1_000.0).toLong().coerceAtLeast(0))
+        }
+        lastRouteLocation = Location(location)
         val fix = LocationFix(
             id = UUID.randomUUID().toString(),
             surveyId = surveyId,
@@ -388,7 +467,7 @@ class SurveyAcquisitionService : Service() {
         radioController.closeNative()
         coordinator.command(surveyId, SurveyCommand.Pause)
         radioController.markRecoverable("Radio transfer stalled")
-        RoomSurveyStateStore(database.notebookDao()).recordGap(
+        RoomSurveyStateStore(database.notebookDao()).recordOpenGap(
             surveyId, GapReason.RADIO_STALL, System.currentTimeMillis(), SystemClock.elapsedRealtimeNanos(),
         )
         counters.increment(HealthCounter.SERVICE_GAP)
@@ -526,13 +605,12 @@ class SurveyAcquisitionService : Service() {
         workers.forEach { if (it.isActive) it.cancel() }
         workers.forEach { runCatching { it.join() } }
         workers.clear()
-        nativeQueue.discardPending()
-        processingQueue.discardPending()
-        persistenceQueue.discardPending()
+        val discarded = nativeQueue.discardPending() + processingQueue.discardPending() + persistenceQueue.discardPending()
         if (timedOut) {
             counters.increment(HealthCounter.SERVICE_GAP)
-            RoomSurveyStateStore(database.notebookDao()).recordGap(
+            RoomSurveyStateStore(database.notebookDao()).recordCountedGap(
                 surveyId, GapReason.QUEUE_PRESSURE, System.currentTimeMillis(), SystemClock.elapsedRealtimeNanos(),
+                discarded.toLong(), "Pipeline did not drain within ${PIPELINE_DRAIN_TIMEOUT_MS} ms; queued units were counted as dropped",
             )
         }
     }
@@ -541,6 +619,7 @@ class SurveyAcquisitionService : Service() {
         val health = counters.snapshot(nativeQueue, processingQueue, persistenceQueue)
         database.notebookDao().updateSurveyHealth(
             surveyId = surveyId,
+            distanceMeters = routeDistanceMillimeters.get() / 1_000.0,
             locationCoverageRatio = locatedBatches.get().toDouble() / totalBatches.get().coerceAtLeast(1),
             droppedFrameCount = health.droppedNativeUnits + health.droppedProcessingUnits + health.droppedPersistenceUnits,
             overrunCount = health.overrunCount,
@@ -591,7 +670,13 @@ class SurveyAcquisitionService : Service() {
                     connectionStore.transition(RadioConnectionCommand.RecoverableError(failure.message ?: "Open failed"))
                     throw failure
                 }
-                val info = opened.deviceInfo()
+                val info = try {
+                    opened.deviceInfo()
+                } catch (failure: Throwable) {
+                    opened.close()
+                    connectionStore.transition(RadioConnectionCommand.RecoverableError(failure.message ?: "Identity read failed"))
+                    throw failure
+                }
                 val compatibility = RadioCompatibilityPolicy.evaluate(info)
                 if (!compatibility.compatible) {
                     opened.close()
@@ -618,10 +703,16 @@ class SurveyAcquisitionService : Service() {
                 )
             }
             promoteForeground()
-            session!!.startSweep(config, SweepSink { bytes, monotonicNs ->
-                nativeQueue.offer(RawTransfer(bytes, System.currentTimeMillis(), monotonicNs))
-            })
-            connectionStore.transition(RadioConnectionCommand.StartSurvey)
+            try {
+                session!!.startSweep(config, SweepSink { bytes, monotonicNs ->
+                    nativeQueue.offer(RawTransfer(bytes, System.currentTimeMillis(), monotonicNs))
+                })
+                connectionStore.transition(RadioConnectionCommand.StartSurvey)
+            } catch (failure: Throwable) {
+                closeNative()
+                connectionStore.transition(RadioConnectionCommand.RecoverableError(failure.message ?: "Sweep start failed"))
+                throw failure
+            }
         }
 
         override suspend fun stop() {
@@ -665,6 +756,7 @@ class SurveyAcquisitionService : Service() {
         const val EXTRA_VGA_GAIN_DB = "vga-gain-db"
         const val EXTRA_RF_AMP_ENABLED = "rf-amp-enabled"
         const val EXTRA_ANTENNA_POWER_ENABLED = "antenna-power-enabled"
+        const val EXTRA_SCAN_RANGES_HZ = "scan-ranges-hz"
         private const val CHANNEL = "survey-acquisition"
         private const val NOTIFICATION_ID = 101
         private const val NATIVE_QUEUE_CAPACITY = 4
@@ -679,7 +771,6 @@ class SurveyAcquisitionService : Service() {
         private const val PIPELINE_DRAIN_TIMEOUT_MS = 5_000L
         private const val DEFAULT_SURVEY_SECONDS = 1_800L
         private const val ESTIMATED_AGGREGATE_BYTES = 128L
-        private const val LOW_BATTERY_PERCENT = 15
         private const val HACKRF_VENDOR_ID = 0x1d50
         private val HACKRF_PRODUCT_IDS = setOf(0x6089, 0x604b, 0xcc15)
     }

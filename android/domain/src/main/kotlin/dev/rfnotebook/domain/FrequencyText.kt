@@ -21,4 +21,13 @@ object FrequencyText {
             throw IllegalArgumentException("Frequency must resolve to a whole number of Hz")
         }
     }
+
+    fun parseRanges(value: String): List<FrequencyRange> {
+        if (value.isBlank()) return emptyList()
+        return value.split(',', ';').map { segment ->
+            val endpoints = segment.trim().split(Regex("\\s*[-–—]\\s*"), limit = 2)
+            require(endpoints.size == 2) { "Enter ranges as start-end, separated by commas" }
+            FrequencyRange(parseHz(endpoints[0]), parseHz(endpoints[1]))
+        }
+    }
 }
