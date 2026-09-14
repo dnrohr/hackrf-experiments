@@ -4,6 +4,7 @@ import dev.rfnotebook.domain.EquipmentProfile
 import dev.rfnotebook.domain.FrequencyRange
 import dev.rfnotebook.domain.RadioCapabilities
 import dev.rfnotebook.domain.StarterBandProfiles
+import dev.rfnotebook.domain.SurveyStatus
 import java.util.UUID
 
 data class SurveyLaunch(
@@ -32,7 +33,12 @@ data class SurveySummary(
 
 class NotebookSetupRepository(private val dao: NotebookDao) {
     suspend fun recoverableLaunch(): SurveyLaunch? {
-        val survey = dao.interruptedSurveys().firstOrNull() ?: return null
+        val resumableStatuses = setOf(
+            SurveyStatus.VALIDATING.name,
+            SurveyStatus.ACTIVE.name,
+            SurveyStatus.PAUSED.name,
+        )
+        val survey = dao.interruptedSurveys().firstOrNull { it.status in resumableStatuses } ?: return null
         val band = requireNotNull(dao.bandProfile(survey.bandProfileVersionId))
         val equipment = requireNotNull(dao.equipmentProfile(survey.equipmentProfileVersionId))
         val radio = requireNotNull(dao.radioDevice(equipment.radioDeviceId))

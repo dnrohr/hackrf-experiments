@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.coroutines.runBlocking
 
 class BoundedPipelineTest {
     @Test fun `full queue rejects and counts every dropped unit`() {
@@ -69,6 +70,17 @@ class BoundedPipelineTest {
         assertEquals(0, queue.depth)
         assertEquals(0L, queue.droppedCount)
         assertEquals(null, queue.poll())
+    }
+
+    @Test fun `closing a queue wakes a receiver without throwing`() = runBlocking {
+        val queue = BoundedStage<Int>(PipelineStage.NATIVE, 1)
+
+        queue.close()
+        queue.close()
+
+        assertEquals(null, queue.receiveOrNull())
+        assertEquals(0, queue.depth)
+        assertEquals(0L, queue.droppedCount)
     }
 
     @Test fun `pressure injection creates a user-visible warning`() {

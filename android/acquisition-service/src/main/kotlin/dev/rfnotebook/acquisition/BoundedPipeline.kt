@@ -33,10 +33,8 @@ class BoundedStage<T>(
         return true
     }
 
-    suspend fun receive(): T {
-        val value = channel.receive()
+    suspend fun receiveOrNull(): T? = channel.receiveCatching().getOrNull()?.also {
         depthCounter.decrementAndGet()
-        return value
     }
 
     fun poll(): T? = channel.tryReceive().getOrNull()?.also { depthCounter.decrementAndGet() }

@@ -299,7 +299,7 @@ class SurveyAcquisitionService : Service() {
         if (workers.isNotEmpty()) return
         workers += scope.launch {
             while (isActive) {
-                val raw = nativeQueue.receive()
+                val raw = nativeQueue.receiveOrNull() ?: break
                 try {
                     val result = HackrfSweepProcessor.process(raw.bytes, sampleRateHz, binWidthHz)
                     counters.increment(HealthCounter.MALFORMED_FRAME, result.malformedBlocks.toLong())
@@ -319,7 +319,7 @@ class SurveyAcquisitionService : Service() {
         }
         workers += scope.launch {
             while (isActive) {
-                val timed = processingQueue.receive()
+                val timed = processingQueue.receiveOrNull() ?: break
                 enqueueSummaries(accumulator.add(timed.wallTimeEpochMs, timed.monotonicNs, timed.frame))
             }
         }
@@ -332,7 +332,7 @@ class SurveyAcquisitionService : Service() {
         workers += scope.launch {
             while (isActive) {
                 val items = buildList {
-                    add(persistenceQueue.receive())
+                    add(persistenceQueue.receiveOrNull() ?: return@launch)
                     while (size < PERSISTENCE_BATCH_MAX_ITEMS) {
                         val next = persistenceQueue.poll() ?: break
                         add(next)

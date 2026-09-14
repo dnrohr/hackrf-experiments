@@ -1,6 +1,6 @@
 # M1 hardware report
 
-Status: Production survey recorded; recovery cases pending
+Status: Production survey and process-death recovery recorded; detach recovery pending
 
 ## Connected software validation
 
@@ -70,6 +70,32 @@ evidence.
 This run is evidence that the bounded processing queue and batched persistence
 path remove the losses observed in the preceding 4 MS/s run.
 
+### Forced-process recovery retest
+
+- Date: 2026-09-14
+- Phone: Google Pixel 8a, Android 17; wireless ADB; full device identifier omitted
+- HackRF: Great Scott Gadgets HackRF One; UI-reported firmware 2026.01.3,
+  USB API 1.10; full serial omitted
+- Profile: 902–928 MHz, 100 kHz bins, 4 MS/s, LNA 16 dB, VGA 16 dB, RF
+  amplifier off, antenna-port power off
+- Interruption: the application process was force-stopped while the survey was
+  Active, then relaunched with the HackRF still attached
+- Recovery: the setup screen offered the interrupted survey; its Recover action
+  restarted the foreground acquisition service and returned the same survey to
+  Active without an application crash
+- Post-recovery observation: USB rate 2.78 MB/s; 4,420 new aggregates reported
+  persisted; GPS accuracy 17.9 m with a 0-second fix age; native/processing/disk
+  stage drops 0/0/0; overruns 0; malformed frames 0
+- Regression found and fixed: orderly channel closure had raised an unhandled
+  `ClosedReceiveChannelException`; workers now treat channel closure as normal
+  completion, with a unit test covering repeated close and waiting receive
+- State-selection correction: a `FINALIZING` record is no longer presented as a
+  resumable interrupted survey
+
+This is runtime evidence for process-death recovery and continued receive-only
+acquisition. Direct database readback of the persisted process-death gap remains
+pending and is not inferred from the live UI alone.
+
 ## Production survey observation
 
 - Date: 2026-09-14
@@ -111,7 +137,7 @@ Still to record or verify:
 - Exact USB cable/adapter or powered-hub topology
 - Hardware revision and measured sweep-cycle rate
 - Queue high-water marks and persisted final gap records
-- Pause/Resume, detach/reattach, process-death, pressure, and low-storage
-  results
+- Pause/Resume, detach/reattach, pressure, and low-storage results
+- Direct database readback of the process-death gap
 
 No hardware acceptance criterion is claimed by this placeholder.
