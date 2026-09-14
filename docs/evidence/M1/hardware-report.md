@@ -48,10 +48,11 @@ survey gate, sustained 30-minute behavior, or detach/recovery acceptance.
   the screen was off; monitor samples recorded `Dozing` and service present
   throughout the 30-minute interval
 - Finalization: the app’s visible Stop control was used after unlocking; the
-  foreground service then disappeared. A post-run Room/UI readback found the
-  survey still listed as recoverable/interrupted rather than `COMPLETE`; this
-  is recorded as a finalization defect and is not promoted to an acceptance
-  claim.
+  foreground service then disappeared. An immediate readback during the
+  bounded drain still showed the recoverable prompt; after the service had
+  settled, a later app relaunch no longer showed an interrupted-survey prompt.
+  This supports eventual completion, but a direct Room status readback is still
+  required before promoting it to an acceptance claim.
 
 The run demonstrates screen-off operation and visible loss accounting, but it is
 not a clean performance gate because the drop count was nonzero. The exact
