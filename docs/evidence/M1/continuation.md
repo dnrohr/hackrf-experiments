@@ -13,8 +13,8 @@ Updated: 2026-09-15
   committed and the test data is reclaimed.
   Host-side database snapshots and unused archive caches have been deleted;
   committed evidence remains in the repository.
-- Work is committed directly on `main`; the evidence update is pending commit
-  and push after validation.
+- Work is committed directly on `main`; latest commit `568890a` is pushed to
+  `origin/main`.
 
 ## Latest completed evidence
 
