@@ -15,7 +15,8 @@ Status: Software cases complete; physical cases pending
 
 The production service does not change sample rate, gains, bin width, or power
 settings in response to pressure. It reports pressure and always leaves an
-orderly Pause/Stop path. The native adapter now uses a fixed eight-buffer ring
+orderly Pause/Stop path. The native adapter now uses a fixed 32-buffer ring
 instead of the M0 one-slot latest-buffer shortcut; overflow remains counted as
-a native drop and the memory bound is explicit. A post-change physical retest
-is required before claiming the performance gate.
+a native drop and the memory bound is explicit. The post-change physical gate
+completed with zero drops and zero overruns; the active low-storage and
+transfer-stall cases remain explicitly pending.

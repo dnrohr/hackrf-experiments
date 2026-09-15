@@ -1,6 +1,8 @@
 # M1 hardware report
 
-Status: Production survey, process-death recovery, and detach/reattach recovery recorded; revised performance gates pending
+Status: Production survey, process-death recovery, detach/reattach recovery,
+and the post-32-buffer performance gate recorded; transfer-stall and
+low-storage active-service cases remain pending
 
 ## Connected software validation
 
@@ -204,6 +206,33 @@ explicit overrun accounting on the eight-buffer pipeline. It is not promoted as
 a zero-loss performance pass because three native overruns were persisted
 during steady-state acquisition and surfaced as an acquisition-loss warning.
 
-The native adapter has subsequently been changed to a bounded 32-buffer ring
-(approximately 8 MiB per session). A further 30-minute hardware run is needed
-to verify that this removes the observed callback overruns without hiding loss.
+The native adapter was subsequently changed to a bounded 32-buffer ring
+(approximately 8 MiB per session); the post-change gate is recorded below.
+
+## Post-32-buffer 30-minute screen-off gate
+
+- Date: 2026-09-15
+- Phone: Google Pixel 8a, Android 17 (SDK 37), wireless ADB used while the
+  HackRF occupied the phone USB port
+- HackRF: Great Scott Gadgets HackRF One; UI-reported firmware 2026.01.3,
+  USB API 1.10; serial suffix shown in the app and omitted here
+- RF USB topology: HackRF directly attached to the Pixel 8a through the
+  data-capable phone adapter/cable; exact adapter model was not recorded
+- Profile: 902–928 MHz, 100 kHz bins, 2 MS/s, 1.75 MHz filter, LNA 16 dB,
+  VGA 16 dB, RF amplifier off, antenna-port power off
+- Runtime: 31 minutes 04 seconds from persisted start to orderly stop; the
+  screen-off monitor covered the required 30-minute interval
+- Persistence: 484,640 spectrum aggregates and 1,854 location fixes;
+  location coverage was 99.52%; 2,340 observations remained unlocated
+- Final status: COMPLETE; 0 dropped frames, 0 overruns, 0 malformed frames,
+  0 stale fixes, and no acquisition gaps
+- Health: foreground service remained present in every monitor sample; receive
+  rate peaked at 1,539,988 bytes/second; queue maxima were native 1,
+  processing 31, persistence 1; all stage-drop maxima were 0; minimum
+  available storage was 26,179,584,000 bytes; battery reached 80%; thermal
+  status remained 0
+
+This is the clean post-change performance gate for the bounded 32-buffer native
+ring. The persisted overrun and drop fields, rather than only the notification,
+were used for the acceptance result. The stale GPS state shown in preflight was
+preserved, and unlocated observations remained visible in the completed survey.

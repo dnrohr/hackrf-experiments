@@ -1,6 +1,6 @@
 # M1 requirement traceability
 
-Status: In progress. Software evidence is current as of 2026-09-14. Rows marked
+Status: In progress. Software evidence is current as of 2026-09-15. Rows marked
 hardware pending are not acceptance claims.
 
 | Requirement | Implementation | Automated evidence | Hardware evidence |
@@ -21,23 +21,23 @@ hardware pending are not acceptance claims.
 | FR-BAND-003 | cycle estimator and preflight display | `ProfileTest.cycleEstimatorAccountsForExcludedSpectrum` | Pixel 8a preflight displayed 130 ms estimated cycle for 902–928 MHz |
 | FR-BAND-004 | `NotebookSetupRepository` creates/retires immutable versions | connected profile-version test | Not hardware-dependent |
 | FR-BAND-005 | five editable starter definitions and receive-only disclaimer | `ProfileTest.starterProfilesIncludeAllSpecifiedExplorationRegions` | Not hardware-dependent |
-| FR-LOC-001 | full `LocationFix` model/table and service listener | schema test; `LocationAssociationTest` | Final survey summary persisted 338 fixes with accuracy values; 30-minute run remains pending |
+| FR-LOC-001 | full `LocationFix` model/table and service listener | schema test; `LocationAssociationTest` | Final 31:04 survey persisted 1,854 fixes with accuracy values |
 | FR-LOC-002 | configurable monotonic-age policy | stale-fix unit test | GPS gap run pending |
 | FR-LOC-003 | bounded interpolation with explicit marker/provider | interpolation unit test | GPS gap run pending |
 | FR-LOC-004 | nullable aggregate location plus `MISSING`/`STALE` state | Room unlocated-aggregate test | GPS denial/gap run pending |
-| FR-LOC-005 | activity-launched combined foreground service | connected permission regression | Foreground service started from visible activity; 30-minute run remains pending |
+| FR-LOC-005 | activity-launched combined foreground service | connected permission regression | 31:04 screen-off survey retained foreground service and persisted GPS state |
 | FR-ACQ-001 | receive-only `startSweep` and `startRx` APIs | receive-only contract/static checks | M1 production survey ran sweep acquisition; no TX path exposed |
 | FR-ACQ-002 | immutable profile version per survey; no auto-setting path | domain/Room version tests | Completed survey retained the fixed 902–928 MHz and equipment settings |
 | FR-ACQ-003 | callback monotonic time carried through each bucket | accumulator and location tests | Process-death and USB-detach summaries preserved ordered timed gaps |
-| FR-ACQ-004 | native, malformed, overrun, stale-fix, service-gap counters | bounded-pipeline tests | Detach and process-death service gaps were counted; pressure remains pending |
-| FR-ACQ-005 | independent bounded native/processing/persistence stages; atomic fix/batch writes; 1 Hz UI | bounded-pipeline and connected Room tests | Final summary showed queues 0/0/0 and zero drops; pressure remains pending |
+| FR-ACQ-004 | native, malformed, overrun, stale-fix, service-gap counters | bounded-pipeline tests | Detach and process-death gaps were counted; final 31:04 gate persisted zero drops, overruns, malformed frames, stale fixes, and gaps |
+| FR-ACQ-005 | independent bounded native/processing/persistence stages; atomic fix/batch writes; 1 Hz UI | bounded-pipeline and connected Room tests | Final health maxima were native 1, processing 31, persistence 1 with zero stage drops |
 | FR-ACQ-006 | survey pipeline persists only summaries/fixes/health | receive-only script and schema inspection | Final summary persisted aggregates, fixes, gaps, and health with no survey IQ |
-| NFR-PERF-001 | callback only offers to memory queue; database on IO workers | coordinator/pipeline unit tests | Final survey completed with zero drops; 30-minute run remains pending |
+| NFR-PERF-001 | callback only offers to memory queue; database on IO workers | coordinator/pipeline unit tests | Final 31:04 screen-off gate completed with zero persisted drops |
 | NFR-PERF-002 | health UI state published at 1 Hz | source inspection | Active UI displayed live queue, rate, GPS, battery, thermal, and storage health |
 | NFR-PERF-003 | bounded nonblocking callback path | M0 8 MS/s evidence; queue tests | M1 8 MS/s check pending |
-| NFR-PERF-004 | three bounded stages and per-stage counters | `BoundedPipelineTest` | Detach/recovery run showed bounded queues and 0/0/0 stage drops; pressure remains pending |
+| NFR-PERF-004 | three bounded stages and per-stage counters | `BoundedPipelineTest` | Final health showed bounded queues and zero stage drops; injection evidence remains in automated tests |
 | NFR-PERF-005 | `StorageGuard` estimate, 256 MiB reserve, and orderly automatic stop below reserve | storage-guard test | low-storage run pending |
-| NFR-PERF-006 | battery/thermal snapshots and visible warnings without retuning | source inspection; coordinator tests | thermal/battery observation pending |
+| NFR-PERF-006 | battery/thermal snapshots and visible warnings without retuning | source inspection; coordinator tests | Final health persisted battery and thermal snapshots; thermal status 0 |
 
 ## Validation evidence
 
