@@ -14,7 +14,7 @@ Updated: 2026-09-15
   on the phone.
   Host-side database snapshots and unused archive caches have been deleted;
   committed evidence remains in the repository.
-- Work is committed directly on `main`; latest commit `568890a` is pushed to
+- Work is committed directly on `main`; latest commit `7c11df9` is pushed to
   `origin/main`.
 
 ## Latest completed evidence
@@ -43,9 +43,9 @@ Updated: 2026-09-15
   Android build outputs were then cleaned from the host.
 - Full `lint test assembleDebug`, planning validation, receive-only static
   validation, and native export validation passed after the fixes. The
-  connected test result files report 5/5 storage tests and 3/3 app tests, but
-  the Gradle tasks return failure during automatic uninstall and need a
-  toolchain-level fix or a clean-device rerun.
+  2026-09-15 connected result XML/report files show 5/5 storage tests and 3/3
+  app tests with zero failures; the aggregate Gradle task still returned
+  nonzero despite those successful reports and needs a test-runner diagnosis.
 - Full details are in `hardware-report.md` in this directory.
 
 ## Remaining before M1 can be marked complete

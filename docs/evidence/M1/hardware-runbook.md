@@ -1,6 +1,7 @@
 # M1 production hardware gate runbook
 
-Status: Ready to execute; physical run pending
+Status: Final 30-minute performance gate recorded; transfer-stall and active
+low-storage physical cases remain pending
 
 This runbook completes M1's remaining physical acceptance evidence. Raw monitor
 files stay under the gitignored `.state/M1-hardware/` directory. Review every

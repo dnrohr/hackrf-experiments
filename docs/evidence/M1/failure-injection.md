@@ -10,7 +10,7 @@ Status: Software cases complete; physical cases pending
 | Radio start failure | Fake radio throws after Active is persisted | Survey transitions to Failed with reason | Passed, `SurveyCoordinatorTest`; service startup cleanup now also persists `FAILED`, drains bounded workers, and closes the native session |
 | Process death | Recover persisted Active state | Radio stopped, survey Paused, process-death gap recorded | Passed, `SurveyCoordinatorTest` |
 | Low storage | Available bytes below estimate plus reserve | Preflight denied without allocating; an active survey stops orderly if free space later crosses the fixed reserve | Guard test passed; active-service device run pending |
-| USB detach | Physical removal while active | Native device closes, survey pauses, timestamped gap visible | Pending HackRF run |
+| USB detach | Physical removal while active | Native device closes, survey pauses, timestamped gap visible | Passed physical detach/reattach recovery run; `USB_DETACH` gap closed with zero drops |
 | Transfer stall | Physical/instrumented stall | Session closes, recoverable state and gap visible | Pending HackRF run |
 
 The production service does not change sample rate, gains, bin width, or power
