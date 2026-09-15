@@ -19,7 +19,9 @@ namespace {
 constexpr std::int64_t kMinFrequencyHz = 1'000'000;
 constexpr std::int64_t kMaxFrequencyHz = 6'000'000'000;
 constexpr std::size_t kTransferBufferSize = 262'144;
-constexpr std::size_t kNativeBufferCount = 8;
+// Keep several seconds of callback data available while the Android delivery
+// coroutine is briefly descheduled, without allowing unbounded native memory.
+constexpr std::size_t kNativeBufferCount = 32;
 
 struct NativeSession {
     hackrf_device* device = nullptr;

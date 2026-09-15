@@ -179,4 +179,31 @@ Still to record or verify:
 - A clean 30-minute screen-off run on the revised zero-loss pipeline (the prior
   30-minute screen-off run predates the buffering fixes and recorded losses)
 
-No hardware acceptance criterion is claimed by this placeholder.
+## Revised 30-minute screen-off rerun
+
+- Date: 2026-09-14
+- Phone: Google Pixel 8a, Android 17 (SDK 37)
+- HackRF: Great Scott Gadgets HackRF One; UI-reported firmware 2026.01.3,
+  USB API 1.10; full serial omitted
+- Profile: 902–928 MHz, 100 kHz bins, 2 MS/s, LNA 16 dB, VGA 16 dB, RF
+  amplifier off, antenna-port power off
+- Runtime: 34 minutes 42 seconds from persisted start to stop; the screen-off
+  monitor covered the required 30-minute interval
+- Persistence: 1,028,560 spectrum aggregates and 3,943 location fixes;
+  99.7% of observation batches were located
+- Final status: COMPLETE; 0 dropped frames, 3 overruns, 0 malformed frames,
+  0 stale-fix count, 1,820 unlocated observations, and no explicit acquisition
+  gaps
+- Health: foreground service remained present in every monitor sample; receive
+  rate was approximately 1 MB/s; queue maxima were native 1, processing 31,
+  persistence 1; minimum available storage was approximately 24.6 GiB and
+  thermal status remained 0
+
+This rerun confirms screen-off foreground operation, bounded persistence, and
+explicit overrun accounting on the eight-buffer pipeline. It is not promoted as
+a zero-loss performance pass because three native overruns were persisted
+during steady-state acquisition and surfaced as an acquisition-loss warning.
+
+The native adapter has subsequently been changed to a bounded 32-buffer ring
+(approximately 8 MiB per session). A further 30-minute hardware run is needed
+to verify that this removes the observed callback overruns without hiding loss.
