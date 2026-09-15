@@ -15,7 +15,7 @@ Updated: 2026-09-15
   Host-side database snapshots and unused archive caches have been deleted;
   committed evidence remains in the repository.
 - Work is committed directly on `main`; the debug-hook implementation and new
-  evidence are in commit `bff306d`, pending the final push to `origin/main`.
+  evidence are committed and pushed to `origin/main`.
 
 ## Latest completed evidence
 
