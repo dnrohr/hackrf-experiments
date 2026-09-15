@@ -273,4 +273,26 @@ permission-required branch explicitly.
   `USB_DETACH` gap with 0 dropped units.
 
 This attempt is retained to show that physical removal is not being mislabeled
-as a transfer stall. A true instrumented transfer-stall case remains pending.
+as a transfer stall.
+
+## Instrumented active-service failure cases
+
+- Date: 2026-09-15
+- Phone: Google Pixel 8a, Android 17 (SDK 37); HackRF directly attached and
+  permission granted
+- Profile: 902–928 MHz, 100 kHz bins, 2 MS/s, 1.75 MHz filter, LNA 16 dB,
+  VGA 16 dB, RF amplifier off, antenna-port power off
+- Transfer stall: a debuggable-app-only service action exercised the existing
+  stall handler. The active survey visibly changed to `PAUSED` with “Radio
+  stalled; gap recorded”; readback after orderly stop showed `COMPLETE`, 2,860
+  aggregates, one closed 16,359 ms `RADIO_STALL` gap, 0 dropped units, and
+  zero overrun/malformed counters.
+- Low storage: a debuggable-app-only service action exercised the same active
+  low-storage stop path without allocating or filling storage. Readback showed
+  `COMPLETE`, 4,480 aggregates, one closed `LOW_STORAGE` gap, 0 dropped units,
+  0 overruns, 0 malformed frames, and a minimum available-storage snapshot of
+  26,575,015,936 bytes (about 24.7 GiB).
+
+These are controlled active-service injections, not claims that the physical
+phone storage was filled. The hooks are guarded by the debuggable application
+flag, and the phone test database was cleared after readback.

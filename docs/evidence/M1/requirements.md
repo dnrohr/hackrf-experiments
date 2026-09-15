@@ -9,7 +9,7 @@ hardware pending are not acceptance claims.
 | FR-USB-002 | `MainActivity.requestUsbPermission` and attachment receiver | `PhysicalDeviceGateTest` permission-denial regression | USB permission granted on Pixel 8a; clean-install repeat remains pending |
 | FR-USB-003 | exact suffix selection plus `OpenSessionRegistry` | `OpenSessionRegistryTest` | Hardware survey opened the selected suffix; full serial remains omitted |
 | FR-USB-004 | `RadioDeviceEntity`; active-survey identity | Room connected tests | Active survey displayed HackRF model, firmware/API, and serial suffix |
-| FR-USB-005 | selected-device broadcasts, stall handling, recoverable gaps | coordinator/state tests | Physical detach/reattach and process-recovery gaps persisted; stall remains pending |
+| FR-USB-005 | selected-device broadcasts, stall handling, recoverable gaps | coordinator/state tests | Physical detach/reattach and process-recovery gaps persisted; instrumented `RADIO_STALL` gap persisted; physical removal remains `USB_DETACH` |
 | FR-USB-006 | `NativeRadioSession.close`; service `finally`/stop/detach paths | `NativeSessionStateTest`; coordinator tests | Detach drained queues and stop removed the foreground service; direct native-handle inspection remains pending |
 | FR-USB-007 | `RadioLimits`; profile validation against M0-supported rates | `ReceiveOnlyContractTest`; `ProfileTest` | M0 2/4/8 MS/s evidence; M1 4 MS/s run measured 2.54–2.78 MB/s |
 | FR-EQP-001 | versioned equipment table and editor fields | Room profile-version test | Not hardware-dependent |
@@ -36,7 +36,7 @@ hardware pending are not acceptance claims.
 | NFR-PERF-002 | health UI state published at 1 Hz | source inspection | Active UI displayed live queue, rate, GPS, battery, thermal, and storage health |
 | NFR-PERF-003 | bounded nonblocking callback path | M0 8 MS/s evidence; queue tests | M1 8 MS/s check pending |
 | NFR-PERF-004 | three bounded stages and per-stage counters | `BoundedPipelineTest` | Final health showed bounded queues and zero stage drops; injection evidence remains in automated tests |
-| NFR-PERF-005 | `StorageGuard` estimate, 256 MiB reserve, and orderly automatic stop below reserve | storage-guard test | low-storage run pending |
+| NFR-PERF-005 | `StorageGuard` estimate, 256 MiB reserve, and orderly automatic stop below reserve | storage-guard test | Instrumented active-service low-storage stop persisted `LOW_STORAGE` and finalized `COMPLETE` without consuming storage |
 | NFR-PERF-006 | battery/thermal snapshots and visible warnings without retuning | source inspection; coordinator tests | Final health persisted battery and thermal snapshots; thermal status 0 |
 
 ## Validation evidence

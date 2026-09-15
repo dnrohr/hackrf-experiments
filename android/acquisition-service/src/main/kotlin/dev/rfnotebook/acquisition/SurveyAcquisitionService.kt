@@ -9,6 +9,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.hardware.usb.UsbManager
@@ -160,9 +161,14 @@ class SurveyAcquisitionService : Service() {
             ACTION_PAUSE -> scope.launch { pauseSurvey() }
             ACTION_RESUME -> scope.launch { resumeSurvey() }
             ACTION_STOP -> scope.launch { stopSurvey() }
+            ACTION_DEBUG_TRANSFER_STALL -> if (isDebuggable()) scope.launch { handleRadioStall() }
+            ACTION_DEBUG_LOW_STORAGE -> if (isDebuggable()) scope.launch { handleLowStorage() }
         }
         return START_NOT_STICKY
     }
+
+    private fun isDebuggable(): Boolean =
+        (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
     private suspend fun startSurvey(intent: Intent) {
         try {
@@ -445,15 +451,7 @@ class SurveyAcquisitionService : Service() {
             )
             updateNotification("RX ${bytesPerSecond / 1_000_000} MB/s • ${health.droppedNativeUnits + health.droppedProcessingUnits + health.droppedPersistenceUnits} dropped")
             if (storage < StorageGuard.DEFAULT_RESERVE_BYTES) {
-                RoomSurveyStateStore(database.notebookDao()).recordCountedGap(
-                    surveyId,
-                    GapReason.LOW_STORAGE,
-                    System.currentTimeMillis(),
-                    SystemClock.elapsedRealtimeNanos(),
-                    0,
-                    "Available storage fell below the fixed ${StorageGuard.DEFAULT_RESERVE_BYTES}-byte reserve; survey stopped orderly",
-                )
-                scope.launch { stopSurvey() }
+                handleLowStorage()
                 return
             }
         }
@@ -484,6 +482,7 @@ class SurveyAcquisitionService : Service() {
     }
 
     private suspend fun handleRadioStall() {
+        if (!::coordinator.isInitialized || !::surveyId.isInitialized) return
         radioController.closeNative()
         coordinator.command(surveyId, SurveyCommand.Pause)
         radioController.markRecoverable("Radio transfer stalled")
@@ -496,6 +495,26 @@ class SurveyAcquisitionService : Service() {
             SurveyAcquisitionStatus.state.value.copy(status = SurveyStatus.PAUSED, warning = operationalWarning.get()),
         )
         updateNotification("Radio stalled • survey paused")
+    }
+
+    private suspend fun handleLowStorage() {
+        if (!::coordinator.isInitialized || !::surveyId.isInitialized) return
+        if (database.notebookDao().survey(surveyId)?.status != SurveyStatus.ACTIVE.name) return
+        RoomSurveyStateStore(database.notebookDao()).recordCountedGap(
+            surveyId,
+            GapReason.LOW_STORAGE,
+            System.currentTimeMillis(),
+            SystemClock.elapsedRealtimeNanos(),
+            0,
+            "Available storage fell below the fixed ${StorageGuard.DEFAULT_RESERVE_BYTES}-byte reserve; survey stopped orderly",
+        )
+        operationalWarning.set("Low storage; survey stopped orderly")
+        SurveyAcquisitionStatus.update(
+            SurveyAcquisitionStatus.state.value.copy(warning = operationalWarning.get()),
+        )
+        // Match the health-loop path: let this command return before the
+        // orderly stop drains workers and finalizes the survey.
+        scope.launch { stopSurvey() }
     }
 
     private fun enqueueSummaries(summaries: List<SpectrumSummary>) {
@@ -776,6 +795,10 @@ class SurveyAcquisitionService : Service() {
         const val ACTION_PAUSE = "dev.rfnotebook.action.PAUSE_SURVEY"
         const val ACTION_RESUME = "dev.rfnotebook.action.RESUME_SURVEY"
         const val ACTION_STOP = "dev.rfnotebook.action.STOP_SURVEY"
+        // App-UID-only debug hooks for active-service failure-injection evidence.
+        // They are ignored by release builds (the service is also not exported).
+        const val ACTION_DEBUG_TRANSFER_STALL = "dev.rfnotebook.action.DEBUG_TRANSFER_STALL"
+        const val ACTION_DEBUG_LOW_STORAGE = "dev.rfnotebook.action.DEBUG_LOW_STORAGE"
         const val EXTRA_SURVEY_ID = "survey-id"
         const val EXTRA_SERIAL_SUFFIX = "serial-suffix"
         const val EXTRA_START_FREQUENCY_HZ = "start-frequency-hz"

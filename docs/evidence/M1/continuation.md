@@ -14,8 +14,8 @@ Updated: 2026-09-15
   on the phone.
   Host-side database snapshots and unused archive caches have been deleted;
   committed evidence remains in the repository.
-- Work is committed directly on `main`; latest commit `77d52b4` is pushed to
-  `origin/main`.
+- Work is committed directly on `main`; the debug-hook implementation and new
+  evidence are in commit `bff306d`, pending the final push to `origin/main`.
 
 ## Latest completed evidence
 
@@ -32,6 +32,11 @@ Updated: 2026-09-15
   transfer-stall evidence: the app correctly classified it as `USB_DETACH` and
   closed a 38,260 ms gap with zero dropped units. A true instrumented stall
   remains the only radio-lifecycle case not exercised.
+
+- Controlled active-service injections now cover both remaining handler paths:
+  `RADIO_STALL` paused visibly and finalized with zero drops; `LOW_STORAGE`
+  stopped orderly and finalized with zero drops. Neither test filled phone
+  storage; the disposable database was cleared after readback.
 
 - Commit `83913c0` fixes worker shutdown after process death and prevents
   `FINALIZING` surveys from being offered as resumable.
@@ -62,8 +67,9 @@ Updated: 2026-09-15
 1. Audit the requirement links and acceptance boxes against the clean
    post-32-buffer hardware gate.
 2. Preserve the documented limitations: exact USB adapter topology and
-   explicit low-storage/queue-pressure hardware scenarios are not claimed by
-   this run; the software injection/storage tests remain the applicable evidence.
+   physical low-storage scenario are not claimed; the active low-storage and
+   stall results are controlled debuggable-service injections, while queue
+   pressure remains covered by deterministic software tests.
 3. Complete the milestone Handoff section, update `ROADMAP.md`, rerun all
    validation, and commit with an `M1:` message.
 4. Phone test-data cleanup is complete; future USB permission will need to be
