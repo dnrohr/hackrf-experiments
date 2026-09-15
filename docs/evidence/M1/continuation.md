@@ -30,8 +30,8 @@ Updated: 2026-09-15
   Resume after permission approval.
 - A second short physical disconnect attempt was intentionally not promoted to
   transfer-stall evidence: the app correctly classified it as `USB_DETACH` and
-  closed a 38,260 ms gap with zero dropped units. A true instrumented stall
-  remains the only radio-lifecycle case not exercised.
+  closed a 38,260 ms gap with zero dropped units. The separate instrumented
+  stall case then exercised the distinct `RADIO_STALL` handler.
 
 - Controlled active-service injections now cover both remaining handler paths:
   `RADIO_STALL` paused visibly and finalized with zero drops; `LOW_STORAGE`

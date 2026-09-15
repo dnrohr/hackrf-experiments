@@ -1,8 +1,8 @@
 # M1 hardware report
 
 Status: Production survey, process-death recovery, detach/reattach recovery,
-and the post-32-buffer performance gate recorded; transfer-stall and
-low-storage active-service cases remain pending
+post-32-buffer performance gate, and controlled active-service failure cases
+recorded; final M1 acceptance audit remains pending
 
 ## Connected software validation
 
