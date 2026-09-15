@@ -28,6 +28,10 @@ Updated: 2026-09-15
   COMPLETE. Reattach required fresh Android USB permission; that rejected
   Resume branch is recorded explicitly, while the earlier recovery run covered
   Resume after permission approval.
+- A second short physical disconnect attempt was intentionally not promoted to
+  transfer-stall evidence: the app correctly classified it as `USB_DETACH` and
+  closed a 38,260 ms gap with zero dropped units. A true instrumented stall
+  remains the only radio-lifecycle case not exercised.
 
 - Commit `83913c0` fixes worker shutdown after process death and prevents
   `FINALIZING` surveys from being offered as resumable.

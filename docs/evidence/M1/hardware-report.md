@@ -260,3 +260,17 @@ This readback independently confirms visible detach handling, bounded resource
 drain, and loss-preserving gap closure. The earlier recovery sequence also
 covered reattach plus Resume after permission approval; this run records the
 permission-required branch explicitly.
+
+## Transfer-stall test attempt (not claimed as stall evidence)
+
+- Date: 2026-09-15
+- A short active 2 MS/s survey was physically disconnected to exercise the
+  no-data path. The service classified the event as `USB_DETACH`, paused, and
+  displayed the detach warning; it did not enter the distinct transfer-stall
+  handler.
+- Orderly stop produced COMPLETE status with 2,600 unlocated observations,
+  0 drops, 0 overruns, 0 malformed frames, and one closed 38,260 ms
+  `USB_DETACH` gap with 0 dropped units.
+
+This attempt is retained to show that physical removal is not being mislabeled
+as a transfer stall. A true instrumented transfer-stall case remains pending.

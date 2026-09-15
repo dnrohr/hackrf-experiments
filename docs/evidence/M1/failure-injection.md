@@ -11,7 +11,7 @@ Status: Software cases complete; physical cases pending
 | Process death | Recover persisted Active state | Radio stopped, survey Paused, process-death gap recorded | Passed, `SurveyCoordinatorTest` |
 | Low storage | Available bytes below estimate plus reserve | Preflight denied without allocating; an active survey stops orderly if free space later crosses the fixed reserve | Guard test passed; active-service device run pending |
 | USB detach | Physical removal while active | Native device closes, survey pauses, timestamped gap visible | Passed physical detach/reattach recovery run; `USB_DETACH` gap closed with zero drops |
-| Transfer stall | Physical/instrumented stall | Session closes, recoverable state and gap visible | Pending HackRF run |
+| Transfer stall | Physical/instrumented stall | Session closes, recoverable state and gap visible | Physical disconnect attempt was classified as `USB_DETACH`, not a transfer stall; true stall remains pending |
 
 The production service does not change sample rate, gains, bin width, or power
 settings in response to pressure. It reports pressure and always leaves an
