@@ -236,3 +236,27 @@ This is the clean post-change performance gate for the bounded 32-buffer native
 ring. The persisted overrun and drop fields, rather than only the notification,
 were used for the acceptance result. The stale GPS state shown in preflight was
 preserved, and unlocated observations remained visible in the completed survey.
+
+## USB detach/reattach readback
+
+- Date: 2026-09-15
+- Phone: Google Pixel 8a, Android 17 (SDK 37), wireless ADB while the HackRF
+  occupied the phone USB port
+- HackRF: Great Scott Gadgets HackRF One; UI-reported firmware 2026.01.3,
+  USB API 1.10; serial suffix omitted
+- Run: 1 minute 47 seconds, 2 MS/s, 902–928 MHz, RF amplifier off,
+  antenna-port power off
+- Result: physical removal caused the active survey to pause and display
+  `USB detached; gap recorded`; after reconnection the app required fresh USB
+  permission, so Resume was rejected with `PERMISSION_REQUIRED`. Orderly Stop
+  then finalized the survey and closed the persisted `USB_DETACH` gap.
+- Persistence: 4,160 aggregates and 96 location fixes; 43.75% located;
+  one 92,201 ms gap with 0 dropped units; 0 overruns, malformed frames, or
+  stale fixes; final status COMPLETE
+- Health: queue maxima native 0, processing 19, persistence 0; stage drops 0;
+  minimum available storage 26,574,708,736 bytes; battery 67%; thermal 0
+
+This readback independently confirms visible detach handling, bounded resource
+drain, and loss-preserving gap closure. The earlier recovery sequence also
+covered reattach plus Resume after permission approval; this run records the
+permission-required branch explicitly.

@@ -23,6 +23,11 @@ Updated: 2026-09-15
   persisted 484,640 aggregates and 1,854 location fixes over 31:04 with
   99.52% location coverage, zero drops, zero overruns, zero malformed/stale
   frames, no acquisition gaps, bounded queues, and a 26.18 GB storage floor.
+- A separate 2026-09-15 USB detach/reattach readback completed with one
+  92,201 ms closed `USB_DETACH` gap, 0 dropped units, and final status
+  COMPLETE. Reattach required fresh Android USB permission; that rejected
+  Resume branch is recorded explicitly, while the earlier recovery run covered
+  Resume after permission approval.
 
 - Commit `83913c0` fixes worker shutdown after process death and prevents
   `FINALIZING` surveys from being offered as resumable.
