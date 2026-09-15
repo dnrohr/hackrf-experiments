@@ -14,7 +14,7 @@ Updated: 2026-09-15
   on the phone.
   Host-side database snapshots and unused archive caches have been deleted;
   committed evidence remains in the repository.
-- Work is committed directly on `main`; latest commit `a4f1a01` is pushed to
+- Work is committed directly on `main`; latest commit `77d52b4` is pushed to
   `origin/main`.
 
 ## Latest completed evidence
