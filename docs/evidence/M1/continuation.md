@@ -9,8 +9,9 @@ Updated: 2026-09-15
 - The HackRF may be physically disconnected from the phone.
 - The debug app was installed with the 32-buffer native-ring build; the final
   post-change 30-minute screen-off gate completed with zero drops and zero
-  overruns. The phone retains its local survey database until evidence is
-  committed and the test data is reclaimed.
+  overruns. After the evidence was committed, the app data was cleared; the
+  package now occupies approximately 3.5 KB and the test surveys are no longer
+  on the phone.
   Host-side database snapshots and unused archive caches have been deleted;
   committed evidence remains in the repository.
 - Work is committed directly on `main`; latest commit `568890a` is pushed to
@@ -56,8 +57,8 @@ Updated: 2026-09-15
    this run; the software injection/storage tests remain the applicable evidence.
 3. Complete the milestone Handoff section, update `ROADMAP.md`, rerun all
    validation, and commit with an `M1:` message.
-4. After the evidence is committed, reclaim the intentionally retained survey
-   database from the phone as requested.
+4. Phone test-data cleanup is complete; future USB permission will need to be
+   granted again if another HackRF run is started.
 
 ## Suggested next action
 
