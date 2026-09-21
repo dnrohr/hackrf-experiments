@@ -1,8 +1,8 @@
 # M1 hardware report
 
-Status: Production survey, process-death recovery, detach/reattach recovery,
-post-32-buffer performance gate, and controlled active-service failure cases
-recorded; final M1 acceptance audit remains pending
+Status: Complete. Production survey, process-death recovery, detach/reattach
+recovery, post-32-buffer performance gate, and controlled active-service
+failure cases are recorded; closure exceptions are documented separately.
 
 ## Connected software validation
 
@@ -170,9 +170,11 @@ since been changed from the M0 one-slot buffer to a bounded eight-buffer ring;
 the run above predates that change and must not be used to judge the revised
 drop rate.
 
-## Remaining production gate evidence
+## Evidence gaps after the initial production run (historical)
 
-Still to record or verify:
+The following items were still open immediately after the 2026-09-14 run.
+Later sections record the clean replacement gate and failure cases; accepted
+extra repetitions are listed in `closure-exceptions.md`.
 
 - Exact USB cable/adapter or powered-hub topology
 - Hardware revision and measured sweep-cycle rate
@@ -214,10 +216,12 @@ The native adapter was subsequently changed to a bounded 32-buffer ring
 - Date: 2026-09-15
 - Phone: Google Pixel 8a, Android 17 (SDK 37), wireless ADB used while the
   HackRF occupied the phone USB port
-- HackRF: Great Scott Gadgets HackRF One; UI-reported firmware 2026.01.3,
-  USB API 1.10; serial suffix shown in the app and omitted here
-- RF USB topology: HackRF directly attached to the Pixel 8a through the
-  data-capable phone adapter/cable; exact adapter model was not recorded
+- HackRF: Great Scott Gadgets HackRF One older than revision r6; UI-reported
+  firmware 2026.01.3 and USB API 1.10; serial suffix shown in the app and
+  omitted here
+- RF USB topology: HackRF One Micro-USB port to a Micro-USB/USB-A data cable,
+  then a USB-A/USB-C adapter to the Pixel 8a USB-C port. The Pixel directly
+  hosted and bus-powered the HackRF; no hub or external power was used.
 - Profile: 902–928 MHz, 100 kHz bins, 2 MS/s, 1.75 MHz filter, LNA 16 dB,
   VGA 16 dB, RF amplifier off, antenna-port power off
 - Runtime: 31 minutes 04 seconds from persisted start to orderly stop; the

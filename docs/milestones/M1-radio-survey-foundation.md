@@ -1,6 +1,6 @@
 # M1 — Radio and survey foundation
 
-- Status: In progress
+- Status: Complete (accepted 2026-09-21 with documented evidence exceptions)
 - Depends on: M0 — Technical spikes
 - Produces: Reliable receive-only survey platform and persisted observations
 - Next milestone: M2 — Detection and fingerprinting
@@ -124,25 +124,31 @@ tests, and evidence.
 
 ## Acceptance criteria
 
-- [ ] Every primary requirement ID has implementation, automated-test, and/or
+- [x] Every primary requirement ID has implementation, automated-test, and/or
   hardware-evidence links appropriate to its scope.
-- [ ] A clean install can request USB permission, identify the HackRF, and run a
+- [x] A clean install can request USB permission, identify the HackRF, and run a
   receive test without exposing TX.
-- [ ] Profile changes create versions and comparability warnings are correct.
-- [ ] Invalid ranges, unsupported rates, and unsafe implicit settings are rejected.
-- [ ] A 30-minute 902–928 MHz screen-off survey completes through the foreground
+- [x] Profile changes create versions and comparability warnings are correct.
+- [x] Invalid ranges, unsupported rates, and unsafe implicit settings are rejected.
+- [x] A 30-minute 902–928 MHz screen-off survey completes through the foreground
   service with a persistent notification.
-- [ ] GPS fixes retain accuracy and stale/missing/interpolated states.
-- [ ] USB detach produces a visible recoverable gap and closes native resources.
-- [ ] Forced process interruption leaves a recoverable survey, not corrupt state.
-- [ ] Overrun and queue-pressure injection produces counted, user-visible health
+- [x] GPS fixes retain accuracy and stale/missing/interpolated states.
+- [x] USB detach produces a visible recoverable gap and closes native resources.
+- [x] Forced process interruption leaves a recoverable survey, not corrupt state.
+- [x] Overrun and queue-pressure injection produces counted, user-visible health
   events without silent setting changes.
-- [ ] Database migration, state-machine, profile, service, and native lifecycle
+- [x] Database migration, state-machine, profile, service, and native lifecycle
   tests pass.
-- [ ] M0 regression tests still pass.
-- [ ] The M1 hardware report names all equipment, versions, duration, rates, and
+- [x] M0 regression tests still pass.
+- [x] The M1 hardware report names all equipment, versions, duration, rates, and
   observed errors.
-- [ ] `scripts/Test-Planning.ps1` passes after handoff and roadmap updates.
+- [x] `scripts/Test-Planning.ps1` passes after handoff and roadmap updates.
+
+The acceptance audit combines M1 automated evidence, applicable M0 physical
+evidence, and the final M1 hardware runs. Extra physical repetitions that were
+not performed are listed explicitly in
+[`docs/evidence/M1/closure-exceptions.md`](../evidence/M1/closure-exceptions.md);
+the checked boxes do not claim those repetitions occurred.
 
 ## Validation
 
@@ -172,11 +178,25 @@ recovery, low-storage simulation, and queue-pressure test. Store evidence under
 
 Complete this section before marking M1 complete:
 
-- Commit and branch:
-- Delivered behavior:
-- Validation summary:
-- Hardware evidence:
-- Schema version and migration notes:
-- ADRs:
-- Known limitations:
-- M2 starting point and cautions:
+- Commit and branch: `main`; implementation and evidence through `0a35516`,
+  with milestone closure recorded by the commit containing this handoff.
+- Delivered behavior: receive-only HackRF discovery/open/close, immutable
+  equipment and band profiles, a persisted survey state machine, foreground
+  screen-off acquisition, GPS association, bounded aggregation/persistence,
+  health reporting, and explicit interruption gaps.
+- Validation summary: Android lint, unit tests, debug assembly, receive-only
+  static validation, native export validation, planning validation, and the
+  connected-test result files passed. The aggregate connected Gradle command's
+  uninstall-stage nonzero result is retained as a runner limitation.
+- Hardware evidence: Pixel 8a / Android 17 with HackRF One completed the clean
+  31:04 screen-off gate, detach/reattach and process-death recovery, plus
+  controlled active-service stall and low-storage paths.
+- Schema version and migration notes: Room schema version 2; explicit
+  `MIGRATION_1_2`, exported schemas, no destructive fallback.
+- ADRs: ADR 001 through ADR 004 and ADR 006; ADR 005 remains relevant to the
+  later mapping milestone.
+- Known limitations: see `docs/evidence/M1/closure-exceptions.md`; these are
+  accepted/deferred checks, not unreported passes.
+- M2 starting point and cautions: reprocess persisted one-second aggregates
+  offline; retain quality/gap flags, cluster only comparable profile versions,
+  and do not infer payload or transmitter identity.

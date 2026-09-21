@@ -1,7 +1,8 @@
 # M1 production hardware gate runbook
 
-Status: Final 30-minute performance gate recorded; transfer-stall and active
-low-storage physical cases remain pending
+Status: Complete. The final 30-minute performance gate and controlled
+active-service failure cases are recorded; unperformed physical repetitions
+are listed in `closure-exceptions.md`.
 
 This runbook completes M1's remaining physical acceptance evidence. Raw monitor
 files stay under the gitignored `.state/M1-hardware/` directory. Review every
@@ -14,10 +15,10 @@ an unreviewed Android diagnostic dump.
 - Google Pixel 8a running Android 17.
 - Great Scott Gadgets HackRF One with a receive antenna or a safely
   attenuated/shielded source. Never attach a transmitter directly.
-- Preferred proven topology: Pixel USB-C port, USB-C-male/USB-A-female adapter,
-  USB-A-male/Micro-USB-B-male data cable, HackRF One. The Pixel directly hosts
-  and bus-powers the radio. Use the powered hub only if direct power is unstable,
-  and record that change.
+- Proven topology: HackRF One Micro-USB port, Micro-USB/USB-A data cable,
+  USB-A/USB-C adapter, Pixel 8a USB-C port. The Pixel directly hosts and
+  bus-powers the radio; no hub or external power was needed. Use a powered hub
+  only if direct power is unstable, and record that change.
 - Windows development host connected to the Pixel using wireless ADB while the
   Pixel's USB-C port hosts the HackRF.
 
@@ -84,8 +85,8 @@ an unreviewed Android diagnostic dump.
 
 ## Handoff
 
-Sanitize and add the final report to `hardware-report.md`, update requirement and
-failure-injection evidence, refresh the three UI screenshots, check all M1 boxes,
-complete the milestone handoff, mark M1 complete in `ROADMAP.md`, rerun every
-validation command, and commit. M1 remains in progress until all physical cases
-are evidenced rather than inferred from M0.
+The final report, requirement map, failure-injection record, acceptance audit,
+and milestone handoff are committed with M1. The project owner accepted the
+remaining evidence limitations on 2026-09-21 so M2 could begin; the exact
+unperformed repetitions and their substitute evidence are preserved in
+`closure-exceptions.md` rather than being represented as physical passes.

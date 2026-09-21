@@ -1,6 +1,6 @@
 # M2 — Detection and fingerprinting
 
-- Status: Blocked by M1
+- Status: In progress
 - Depends on: M1 — Radio and survey foundation
 - Produces: Explainable detections, fingerprints, and discovery workflows
 - Next milestone: M3 — Geographic mapping

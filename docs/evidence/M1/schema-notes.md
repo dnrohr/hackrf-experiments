@@ -1,6 +1,6 @@
 # M1 database schema
 
-Status: In progress
+Status: Complete for M1
 
 The persistence and backpressure contract is recorded in
 [`ADR 006`](../../adr/006-survey-persistence-and-backpressure.md).

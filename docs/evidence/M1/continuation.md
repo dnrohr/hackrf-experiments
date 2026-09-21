@@ -1,6 +1,8 @@
 # M1 continuation handoff
 
-Updated: 2026-09-15
+Updated: 2026-09-21
+
+Status: M1 closed with documented evidence exceptions; M2 is in progress.
 
 ## Safe current state
 
@@ -62,22 +64,21 @@ Updated: 2026-09-15
   nonzero despite those successful reports and needs a test-runner diagnosis.
 - Full details are in `hardware-report.md` in this directory.
 
-## Remaining before M1 can be marked complete
+## Closure decision
 
-1. Audit the requirement links and acceptance boxes against the clean
-   post-32-buffer hardware gate.
-2. Preserve the documented limitations: exact USB adapter topology and
-   physical low-storage scenario are not claimed; the active low-storage and
-   stall results are controlled debuggable-service injections, while queue
-   pressure remains covered by deterministic software tests.
-3. Complete the milestone Handoff section, update `ROADMAP.md`, rerun all
-   validation, and commit with an `M1:` message.
-4. Phone test-data cleanup is complete; future USB permission will need to be
-   granted again if another HackRF run is started.
+- The requirement links and acceptance boxes were audited against the clean
+  post-32-buffer hardware gate, automated evidence, and applicable M0 evidence.
+- The exact direct, phone-powered USB topology is now recorded in
+  `hardware-report.md` and `hardware-runbook.md`.
+- M1 is marked complete by explicit project-owner decision. Extra physical
+  repetitions that were not performed remain disclosed in
+  `closure-exceptions.md` and may be revisited during M5 hardening.
+- Phone test-data cleanup is complete; future USB permission will need to be
+  granted again if another HackRF run is started.
 
 ## Suggested next action
 
 Start by reading `AGENTS.md`, `ROADMAP.md`, the full specification, the M1 brief,
 and accepted ADRs as required. Then inspect this handoff and `hardware-report.md`.
-Prefer the acceptance audit and validation next; the largest hardware gate is
-now complete.
+Begin M2 from its fixture and evaluation contracts. Reprocess persisted M1
+aggregates offline and preserve M1 quality, comparability, and gap metadata.

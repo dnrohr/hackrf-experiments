@@ -40,8 +40,8 @@ M0 Technical spikes
 | Milestone | Status | Outcome | Primary requirements | Brief |
 | --- | --- | --- | --- | --- |
 | M0 | Complete | Pixel 8a proves direct Android USB, sustained RX, screen-off service, permission denial, detach/reattach, task removal, sweep parsing, offline mapping, and connected-test execution | Readiness gates and open decisions | [Technical spikes](docs/milestones/M0-technical-spikes.md) |
-| M1 | In progress | Reliable receive-only radio and GPS-tagged survey foundation | USB, equipment, band, location, acquisition, performance | [Radio and survey foundation](docs/milestones/M1-radio-survey-foundation.md) |
-| M2 | Blocked by M1 | Convert spectrum observations into reviewable signal fingerprints | Detection and fingerprinting | [Detection and fingerprinting](docs/milestones/M2-detection-fingerprinting.md) |
+| M1 | Complete (documented evidence exceptions) | Reliable receive-only radio and GPS-tagged survey foundation | USB, equipment, band, location, acquisition, performance | [Radio and survey foundation](docs/milestones/M1-radio-survey-foundation.md) |
+| M2 | In progress | Convert spectrum observations into reviewable signal fingerprints | Detection and fingerprinting | [Detection and fingerprinting](docs/milestones/M2-detection-fingerprinting.md) |
 | M3 | Blocked by M2 | Uncertainty-aware geographic exploration of selected fingerprints | Mapping | [Geographic mapping](docs/milestones/M3-geographic-mapping.md) |
 | M4 | Blocked by M3 | Focused IQ capture and privacy-controlled interoperable exports | Capture and export | [Focused capture and export](docs/milestones/M4-capture-export.md) |
 | M5 | Blocked by M4 | Field-tested, accessible, recoverable MVP release candidate | Cross-cutting audit | [Field hardening and release](docs/milestones/M5-field-hardening.md) |
