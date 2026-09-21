@@ -289,3 +289,123 @@ data class HealthSnapshotEntity(
     val thermalStatus: Int?,
     val warning: String?,
 )
+
+@Entity(
+    tableName = "detections",
+    indices = [Index("surveyId"), Index("fingerprintId"), Index("equipmentProfileVersionId"), Index("locationFixId")],
+    foreignKeys = [
+        ForeignKey(
+            entity = SurveyEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["surveyId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+        ForeignKey(
+            entity = SignalFingerprintEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["fingerprintId"],
+            onDelete = ForeignKey.SET_NULL,
+        ),
+        ForeignKey(
+            entity = LocationFixEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["locationFixId"],
+            onDelete = ForeignKey.SET_NULL,
+        ),
+    ],
+)
+data class DetectionEntity(
+    @androidx.room.PrimaryKey val id: String,
+    val surveyId: String,
+    val fingerprintId: String?,
+    val equipmentProfileVersionId: String,
+    val startedAtEpochMs: Long,
+    val endedAtEpochMs: Long,
+    val centerFrequencyHz: Long,
+    val bandwidthHz: Long,
+    val peakPowerDbfs: Float,
+    val medianPowerDbfs: Float,
+    val snrDb: Float,
+    val locationFixId: String?,
+    val detectorVersion: String,
+    val kind: String,
+    val qualityFlags: String,
+)
+
+@Entity(tableName = "signal_fingerprints", indices = [Index("equipmentProfileVersionId"), Index("state")])
+data class SignalFingerprintEntity(
+    @androidx.room.PrimaryKey val id: String,
+    val equipmentProfileVersionId: String,
+    val nominalFrequencyHz: Long,
+    val typicalBandwidthHz: Long,
+    val firstSeenAtEpochMs: Long,
+    val lastSeenAtEpochMs: Long,
+    val occurrenceCount: Int,
+    val dutyCycleEstimate: Float,
+    val typicalBurstDurationMs: Long?,
+    val typicalRepeatIntervalMs: Long?,
+    val noveltyScore: Float,
+    val algorithmVersion: String,
+    val state: String,
+    val userLabel: String,
+    val tags: String,
+    val notes: String,
+    val minimumLatitude: Double? = null,
+    val maximumLatitude: Double? = null,
+    val minimumLongitude: Double? = null,
+    val maximumLongitude: Double? = null,
+    val locatedObservationCount: Int = 0,
+)
+
+@Entity(
+    tableName = "fingerprint_hints",
+    primaryKeys = ["fingerprintId", "rank"],
+    indices = [Index("fingerprintId")],
+    foreignKeys = [ForeignKey(
+        entity = SignalFingerprintEntity::class,
+        parentColumns = ["id"],
+        childColumns = ["fingerprintId"],
+        onDelete = ForeignKey.CASCADE,
+    )],
+)
+data class FingerprintHintEntity(
+    val fingerprintId: String,
+    val rank: Int,
+    val category: String,
+    val confidence: Float,
+    val evidence: String,
+)
+
+@Entity(
+    tableName = "fingerprint_provenance",
+    indices = [Index("fingerprintId")],
+    foreignKeys = [ForeignKey(
+        entity = SignalFingerprintEntity::class,
+        parentColumns = ["id"],
+        childColumns = ["fingerprintId"],
+        onDelete = ForeignKey.CASCADE,
+    )],
+)
+data class FingerprintProvenanceEntity(
+    @androidx.room.PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val fingerprintId: String,
+    val operation: String,
+    val sourceFingerprintIds: String,
+    val atEpochMs: Long,
+    val explanation: String,
+)
+
+@Entity(tableName = "reprocessing_jobs", indices = [Index("surveyId"), Index("status")])
+data class ReprocessingJobEntity(
+    @androidx.room.PrimaryKey val id: String,
+    val surveyId: String,
+    val detectorVersion: String,
+    val clusteringVersion: String,
+    val status: String,
+    val startedAtEpochMs: Long,
+    val endedAtEpochMs: Long?,
+    val inputAggregateCount: Long,
+    val detectionCount: Int,
+    val fingerprintCount: Int,
+    val failureExplanation: String?,
+)

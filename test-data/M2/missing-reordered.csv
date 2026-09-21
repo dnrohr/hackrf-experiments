@@ -1,0 +1,4 @@
+time_ms,frequency_hz,median_dbfs,max_dbfs,quality
+3000,915000000,-50,-50,CORRUPT_FRAME
+0,915000000,-51,-51,
+1000,915000000,-52,-52,

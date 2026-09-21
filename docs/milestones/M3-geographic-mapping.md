@@ -1,6 +1,6 @@
 # M3 — Geographic mapping
 
-- Status: Blocked by M2
+- Status: Ready
 - Depends on: M2 — Detection and fingerprinting
 - Produces: Uncertainty-aware maps and comparable-survey exploration
 - Next milestone: M4 — Focused capture and export

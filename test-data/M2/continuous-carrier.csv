@@ -1,0 +1,4 @@
+time_ms,frequency_hz,median_dbfs,max_dbfs,quality
+0,915000000,-55,-55,
+1000,915000000,-55,-55,
+19000,915000000,-55,-55,

@@ -1,6 +1,6 @@
 # M2 — Detection and fingerprinting
 
-- Status: In progress
+- Status: Complete
 - Depends on: M1 — Radio and survey foundation
 - Produces: Explainable detections, fingerprints, and discovery workflows
 - Next milestone: M3 — Geographic mapping
@@ -113,23 +113,23 @@ and visible behavior.
 
 ## Acceptance criteria
 
-- [ ] All 12 owned requirements have traceability evidence.
-- [ ] Golden fixtures pass documented numeric tolerances.
-- [ ] Noise-only data does not create sustained false fingerprints at the chosen
+- [x] All 12 owned requirements have traceability evidence.
+- [x] Golden fixtures pass documented numeric tolerances.
+- [x] Noise-only data does not create sustained false fingerprints at the chosen
   default threshold during the evaluation window.
-- [ ] Persistent carriers do not disappear into the rolling baseline.
-- [ ] Discrete bursts merge and close deterministically across frame boundaries.
-- [ ] Center, broadband-overload, and corrupt-frame fixtures retain observations
+- [x] Persistent carriers do not disappear into the rolling baseline.
+- [x] Discrete bursts merge and close deterministically across frame boundaries.
+- [x] Center, broadband-overload, and corrupt-frame fixtures retain observations
   with appropriate artifact flags.
-- [ ] Clustering is deterministic for a fixed algorithm version and input order.
-- [ ] Split and merge preserve source detections and an audit trail.
-- [ ] Incomparable equipment profiles are never silently clustered.
-- [ ] Classification hints display confidence and evidence rather than certainty.
-- [ ] A completed M1 survey can be reprocessed without live hardware.
-- [ ] Discoveries and detail screens are usable with empty, large, and partially
+- [x] Clustering is deterministic for a fixed algorithm version and input order.
+- [x] Split and merge preserve source detections and an audit trail.
+- [x] Incomparable equipment profiles are never silently clustered.
+- [x] Classification hints display confidence and evidence rather than certainty.
+- [x] A completed M1 survey can be reprocessed without live hardware.
+- [x] Discoveries and detail screens are usable with empty, large, and partially
   failed datasets.
-- [ ] M0 and M1 regression suites pass.
-- [ ] `scripts/Test-Planning.ps1` passes after handoff and roadmap updates.
+- [x] M0 and M1 regression suites pass.
+- [x] `scripts/Test-Planning.ps1` passes after handoff and roadmap updates.
 
 ## Validation
 
@@ -157,11 +157,26 @@ runtime, and memory in `docs/evidence/M2/evaluation.md`.
 
 Complete this section before marking M2 complete:
 
-- Commit and branch:
-- Delivered behavior:
-- Validation summary:
-- Fixture/evaluation evidence:
-- Detector and clustering versions:
-- ADRs:
-- Known limitations:
-- M3 starting point and cautions:
+- Commit and branch: `main`; milestone commit `M2: add detection and fingerprint discovery`.
+- Delivered behavior: robust per-bin noise estimation, versioned detection and
+  artifact evidence, deterministic comparable-profile clustering, offline Room
+  reprocessing, auditable split/merge correction, cautious hints, ranked and
+  filterable discoveries, and editable signal detail.
+- Validation summary: `lint test assembleDebug` passed (391 tasks); Pixel 8a
+  `connectedDebugAndroidTest` passed (412 tasks, 13 tests, zero failures/errors/
+  skips); receive-only, native-export, planning, and whitespace audits passed.
+- Fixture/evaluation evidence: CC0 synthetic fixture manifest, seven CSV cases,
+  golden expectations, shuffled-order evaluation, and a 13,200-frame JVM run in
+  281 ms with a 6,834,320-byte live-heap delta are recorded under
+  `test-data/M2/` and `docs/evidence/M2/`.
+- Detector and clustering versions: `detector-v1` and `cluster-v1`.
+- ADRs: no new ADR; implementation follows accepted ADR 006 and existing module
+  boundaries without changing the safety, persistence, or product contract.
+- Known limitations: one-second M1 aggregates cannot reconstruct sub-second
+  waveform shape; older aggregates lack hardware-center/corrupt-frame markers;
+  no privacy-reviewed real sweep corpus is committed; classification remains
+  aggregate-shape evidence rather than protocol identification.
+- M3 starting point and cautions: consume persisted fingerprint extents and
+  detection/location relationships; retain missing fixes and gaps, compare only
+  exact equipment-profile versions, visualize observed relative strength, and
+  never imply a transmitter coordinate.

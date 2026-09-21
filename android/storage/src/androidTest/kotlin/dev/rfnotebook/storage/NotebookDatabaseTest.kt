@@ -173,6 +173,82 @@ class NotebookDatabaseTest {
         }
     }
 
+    @Test
+    fun migrationFromVersionTwoAddsM2DerivedEvidenceWithoutChangingAggregates() {
+        val name = "migration-m2-${UUID.randomUUID()}"
+        migrationHelper.createDatabase(name, 2).apply {
+            execSQL(
+                "INSERT INTO radio_devices (id, model, serialSuffix, hardwareRevision, firmwareVersion, usbApiVersion, firstSeenAtEpochMs, lastSeenAtEpochMs, connectionState, connectionRevision) VALUES ('radio', 'HackRF One', 'suffix', 'r9', 'fw', '1.10', 1, 2, 'DISCONNECTED', 0)",
+            )
+            close()
+        }
+
+        migrationHelper.runMigrationsAndValidate(name, 3, true, NotebookDatabase.MIGRATION_2_3).use { migrated ->
+            migrated.query("SELECT COUNT(*) FROM detections").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals(0, cursor.getInt(0))
+            }
+            migrated.query("SELECT model FROM radio_devices WHERE id = 'radio'").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals("HackRF One", cursor.getString(0))
+            }
+        }
+    }
+
+    @Test
+    fun completedM1SurveyReprocessesOfflineAndUserStateIsReversible() = kotlinx.coroutines.runBlocking {
+        val setup = NotebookSetupRepository(database.notebookDao())
+        val launch = setup.createStarterSurvey("suffix", "HackRF One", 1, 1, "offline")
+        val dao = database.notebookDao()
+        val fixA = LocationFixEntity(
+            "m2-fix-a", launch.surveyId, 0, 0, 40.0, -74.0, 5f,
+            null, null, null, "test", false,
+        )
+        val fixB = LocationFixEntity(
+            "m2-fix-b", launch.surveyId, 3_000, 3_000_000_000, 40.01, -73.99, 7f,
+            null, null, null, "test", false,
+        )
+        dao.insertLocationFixes(listOf(fixA, fixB))
+        val aggregates = (0 until 20).flatMap { second ->
+            listOf(914_900_000L, 915_000_000L, 915_100_000L).map { frequency ->
+                val signal = frequency == 915_000_000L && second in setOf(0, 3, 6)
+                SpectrumAggregateEntity(
+                    launch.surveyId, second * 1_000L, frequency,
+                    if (signal) -60f else -92f, if (signal) -55f else -90f, if (signal) -50f else -88f,
+                    -90f, 10,
+                    when (second) { 0 -> fixA.id; 3, 6 -> fixB.id; else -> null },
+                    if (second in setOf(0, 3, 6)) "FRESH" else "MISSING",
+                )
+            }
+        }
+        dao.insertAggregates(aggregates)
+
+        val repository = DiscoveryRepository(dao)
+        val result = repository.reprocessSurvey(launch.surveyId, 30_000)
+        val fingerprint = repository.discoveries().single()
+        val detectionIds = repository.detail(fingerprint.id).detections.map { it.id }
+        val split = repository.splitFingerprint(fingerprint.id, setOf(detectionIds.last()), 31_000)
+        val mergedId = repository.mergeFingerprints(setOf(split.first, split.second), 32_000)
+        repository.updateUserFields(mergedId, dev.rfnotebook.domain.FingerprintState.ARTIFACT, "local interference", setOf("reviewed"), "reversible")
+        repository.updateUserFields(mergedId, dev.rfnotebook.domain.FingerprintState.INTERESTING, "local interference", setOf("reviewed"), "reversible")
+        val corrected = repository.detail(mergedId)
+        repository.reprocessSurvey(launch.surveyId, 33_000)
+        val afterReprocessing = repository.detail(mergedId)
+
+        assertEquals(aggregates.size.toLong(), result.aggregateCount)
+        assertEquals(1, result.fingerprintCount)
+        assertEquals("INTERESTING", corrected.fingerprint.state)
+        assertEquals(detectionIds.toSet(), corrected.detections.map { it.id }.toSet())
+        assertEquals("MERGE", corrected.provenance.last().operation)
+        assertEquals(3, corrected.fingerprint.locatedObservationCount)
+        assertEquals(40.0, corrected.fingerprint.minimumLatitude!!, 0.0)
+        assertEquals(40.01, corrected.fingerprint.maximumLatitude!!, 0.0)
+        assertEquals("local interference", afterReprocessing.fingerprint.userLabel)
+        assertEquals("INTERESTING", afterReprocessing.fingerprint.state)
+        assertEquals("MERGE", afterReprocessing.provenance.last().operation)
+        assertEquals(aggregates.size.toLong(), dao.aggregateCount(launch.surveyId))
+    }
+
     private fun radio() = RadioDeviceEntity("radio", "HackRF One", "suffix", "r9", "fw", "api", 1, 1)
 
     private fun equipment(radioId: String) = EquipmentProfileEntity(

@@ -56,13 +56,17 @@ import dev.rfnotebook.domain.FrequencyRange
 import dev.rfnotebook.domain.EquipmentProfile
 import dev.rfnotebook.storage.NotebookDatabase
 import dev.rfnotebook.storage.NotebookSetupRepository
+import dev.rfnotebook.storage.DiscoveryRepository
+import dev.rfnotebook.storage.DiscoveryDetail
+import dev.rfnotebook.storage.SignalFingerprintEntity
 import dev.rfnotebook.storage.SurveyLaunch
 import dev.rfnotebook.storage.SurveySummary
+import dev.rfnotebook.domain.FingerprintState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class AppPage { SETUP, PREFLIGHT, ACTIVE, SUMMARY }
+private enum class AppPage { SETUP, PREFLIGHT, ACTIVE, SUMMARY, DISCOVERIES, DISCOVERY_DETAIL }
 
 class MainActivity : ComponentActivity() {
     private var usbPermissionState by mutableStateOf("unknown")
@@ -153,6 +157,8 @@ class MainActivity : ComponentActivity() {
         var recoverable by remember { mutableStateOf<SurveyLaunch?>(null) }
         var summary by remember { mutableStateOf<SurveySummary?>(null) }
         var problem by remember { mutableStateOf<String?>(null) }
+        var discoveryState by remember { mutableStateOf(DiscoveryUiState(DiscoveryPhase.EMPTY)) }
+        var discoveryDetail by remember { mutableStateOf<DiscoveryDetail?>(null) }
         val acquisition by SurveyAcquisitionStatus.state.collectAsState()
         val coroutineScope = rememberCoroutineScope()
         val storage = remember(rangeStart, rangeEnd, additionalRanges, excludedRanges, binWidth) {
@@ -175,6 +181,13 @@ class MainActivity : ComponentActivity() {
         ) {
             Text("RF Field Notebook", style = MaterialTheme.typography.headlineSmall)
             Text("Receive only • observed power is relative, not calibrated")
+            if (page != AppPage.DISCOVERIES && page != AppPage.DISCOVERY_DETAIL) {
+                OutlinedButton(onClick = {
+                    discoveryState = DiscoveryUiState(DiscoveryPhase.PROCESSING)
+                    page = AppPage.DISCOVERIES
+                    coroutineScope.launch { loadDiscoveries { discoveryState = it } }
+                }) { Text("Discoveries") }
+            }
             when (page) {
                 AppPage.SETUP -> SetupPage(
                     hackrf, usb, permissionLabel, serialSuffix, band, { selected ->
@@ -243,8 +256,85 @@ class MainActivity : ComponentActivity() {
                             NotebookSetupRepository(NotebookDatabase.open(this@MainActivity).notebookDao()).summary(id)
                         } }
                     }
-                    SummaryPage(summary) { page = AppPage.SETUP }
+                    SummaryPage(summary, onNew = { page = AppPage.SETUP }, onProcess = {
+                        val surveyId = launch?.surveyId ?: return@SummaryPage
+                        discoveryState = DiscoveryUiState(DiscoveryPhase.PROCESSING)
+                        page = AppPage.DISCOVERIES
+                        coroutineScope.launch {
+                            runCatching { withContext(Dispatchers.IO) {
+                                DiscoveryRepository(NotebookDatabase.open(this@MainActivity).notebookDao()).reprocessSurvey(surveyId)
+                            } }.onFailure { discoveryState = DiscoveryUiState(DiscoveryPhase.FAILED, problem = it.message) }
+                            if (discoveryState.phase != DiscoveryPhase.FAILED) loadDiscoveries { discoveryState = it }
+                        }
+                    })
                 }
+                AppPage.DISCOVERIES -> DiscoveriesPage(
+                    discoveryState,
+                    onRefresh = { coroutineScope.launch { loadDiscoveries { discoveryState = it } } },
+                    onSelect = { fingerprint: SignalFingerprintEntity ->
+                        discoveryDetail = null
+                        page = AppPage.DISCOVERY_DETAIL
+                        coroutineScope.launch { discoveryDetail = withContext(Dispatchers.IO) {
+                            DiscoveryRepository(NotebookDatabase.open(this@MainActivity).notebookDao()).detail(fingerprint.id)
+                        } }
+                    },
+                    onBack = { page = AppPage.SETUP },
+                    onProcessSurvey = { surveyId ->
+                        discoveryState = discoveryState.copy(phase = DiscoveryPhase.PROCESSING, problem = null)
+                        coroutineScope.launch {
+                            runCatching { withContext(Dispatchers.IO) {
+                                DiscoveryRepository(NotebookDatabase.open(this@MainActivity).notebookDao()).reprocessSurvey(surveyId)
+                            } }.onFailure { discoveryState = discoveryState.copy(phase = DiscoveryPhase.FAILED, problem = it.message) }
+                            if (discoveryState.phase != DiscoveryPhase.FAILED) loadDiscoveries { discoveryState = it }
+                        }
+                    },
+                    onMerge = { fingerprintIds ->
+                        discoveryState = discoveryState.copy(phase = DiscoveryPhase.PROCESSING, problem = null)
+                        coroutineScope.launch {
+                            runCatching { withContext(Dispatchers.IO) {
+                                DiscoveryRepository(NotebookDatabase.open(this@MainActivity).notebookDao())
+                                    .mergeFingerprints(fingerprintIds, System.currentTimeMillis())
+                            } }.onFailure { discoveryState = discoveryState.copy(phase = DiscoveryPhase.FAILED, problem = it.message) }
+                            if (discoveryState.phase != DiscoveryPhase.FAILED) loadDiscoveries { discoveryState = it }
+                        }
+                    },
+                )
+                AppPage.DISCOVERY_DETAIL -> DiscoveryDetailPage(discoveryDetail, onState = { state ->
+                    val current = discoveryDetail ?: return@DiscoveryDetailPage
+                    coroutineScope.launch {
+                        discoveryDetail = withContext(Dispatchers.IO) {
+                            DiscoveryRepository(NotebookDatabase.open(this@MainActivity).notebookDao()).updateUserFields(
+                                current.fingerprint.id, state, current.fingerprint.userLabel,
+                                current.fingerprint.tags.split('|').filter { it.isNotBlank() }.toSet(), current.fingerprint.notes,
+                            )
+                            DiscoveryRepository(NotebookDatabase.open(this@MainActivity).notebookDao()).detail(current.fingerprint.id)
+                        }
+                    }
+                }, onSave = { label, tags, notes ->
+                    val current = discoveryDetail ?: return@DiscoveryDetailPage
+                    coroutineScope.launch {
+                        discoveryDetail = withContext(Dispatchers.IO) {
+                            val repository = DiscoveryRepository(NotebookDatabase.open(this@MainActivity).notebookDao())
+                            repository.updateUserFields(
+                                current.fingerprint.id, FingerprintState.valueOf(current.fingerprint.state), label, tags, notes,
+                            )
+                            repository.detail(current.fingerprint.id)
+                        }
+                    }
+                }, onBack = { page = AppPage.DISCOVERIES }, onSplitLast = {
+                    val current = discoveryDetail ?: return@DiscoveryDetailPage
+                    val moved = current.detections.lastOrNull()?.id ?: return@DiscoveryDetailPage
+                    coroutineScope.launch {
+                        runCatching { withContext(Dispatchers.IO) {
+                            DiscoveryRepository(NotebookDatabase.open(this@MainActivity).notebookDao()).splitFingerprint(
+                                current.fingerprint.id, setOf(moved), System.currentTimeMillis(),
+                            )
+                        } }.onSuccess {
+                            page = AppPage.DISCOVERIES
+                            loadDiscoveries { discoveryState = it }
+                        }.onFailure { problem = it.message }
+                    }
+                })
             }
             problem?.let { Text("Problem: $it", color = MaterialTheme.colorScheme.error) }
             launchProblem?.let { Text("Problem: $it", color = MaterialTheme.colorScheme.error) }
@@ -377,7 +467,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    @Composable private fun SummaryPage(summary: SurveySummary?, onNew: () -> Unit) {
+    @Composable private fun SummaryPage(summary: SurveySummary?, onNew: () -> Unit, onProcess: () -> Unit) {
         Section("Survey summary") {
             if (summary == null) Text("Finalizing persisted results…") else {
                 Text("Status: ${summary.survey.status}")
@@ -401,7 +491,33 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-        Button(onClick = onNew) { Text("New survey") }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = onProcess) { Text("Process discoveries") }
+            OutlinedButton(onClick = onNew) { Text("New survey") }
+        }
+    }
+
+    private suspend fun loadDiscoveries(update: (DiscoveryUiState) -> Unit) {
+        runCatching {
+            withContext(Dispatchers.IO) {
+                val repository = DiscoveryRepository(NotebookDatabase.open(this@MainActivity).notebookDao())
+                val fingerprints = repository.discoveries()
+                val details = fingerprints.map { repository.detail(it.id) }
+                val partial = repository.partialDataExplanation(details)
+                val surveys = repository.reprocessableSurveys()
+                DiscoveryUiState(
+                    when {
+                        fingerprints.isEmpty() -> DiscoveryPhase.EMPTY
+                        partial != null -> DiscoveryPhase.PARTIAL
+                        else -> DiscoveryPhase.CONTENT
+                    },
+                    fingerprints,
+                    details,
+                    partial,
+                    surveys,
+                )
+            }
+        }.onSuccess(update).onFailure { update(DiscoveryUiState(DiscoveryPhase.FAILED, problem = it.message)) }
     }
 
     @Composable private fun Section(title: String, content: @Composable () -> Unit) {

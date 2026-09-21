@@ -1,0 +1,1795 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 3,
+    "identityHash": "bd025a5b89c655b09cf164123d87c42c",
+    "entities": [
+      {
+        "tableName": "radio_devices",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `model` TEXT NOT NULL, `serialSuffix` TEXT NOT NULL, `hardwareRevision` TEXT NOT NULL, `firmwareVersion` TEXT NOT NULL, `usbApiVersion` TEXT NOT NULL, `firstSeenAtEpochMs` INTEGER NOT NULL, `lastSeenAtEpochMs` INTEGER NOT NULL, `connectionState` TEXT NOT NULL DEFAULT 'DISCONNECTED', `connectionRevision` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "model",
+            "columnName": "model",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serialSuffix",
+            "columnName": "serialSuffix",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hardwareRevision",
+            "columnName": "hardwareRevision",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "firmwareVersion",
+            "columnName": "firmwareVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "usbApiVersion",
+            "columnName": "usbApiVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "firstSeenAtEpochMs",
+            "columnName": "firstSeenAtEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastSeenAtEpochMs",
+            "columnName": "lastSeenAtEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "connectionState",
+            "columnName": "connectionState",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'DISCONNECTED'"
+          },
+          {
+            "fieldPath": "connectionRevision",
+            "columnName": "connectionRevision",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "equipment_profiles",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`versionId` TEXT NOT NULL, `profileId` TEXT NOT NULL, `name` TEXT NOT NULL, `version` INTEGER NOT NULL, `radioDeviceId` TEXT NOT NULL, `antennaName` TEXT NOT NULL, `antennaBands` TEXT NOT NULL, `adapterNotes` TEXT NOT NULL, `sampleRateHz` INTEGER NOT NULL, `basebandFilterHz` INTEGER NOT NULL, `lnaGainDb` INTEGER NOT NULL, `vgaGainDb` INTEGER NOT NULL, `rfAmpEnabled` INTEGER NOT NULL, `antennaPowerEnabled` INTEGER NOT NULL, `isCalibrated` INTEGER NOT NULL, `photoReference` TEXT, `notes` TEXT NOT NULL, `createdAtEpochMs` INTEGER NOT NULL, `retiredAtEpochMs` INTEGER, PRIMARY KEY(`versionId`), FOREIGN KEY(`radioDeviceId`) REFERENCES `radio_devices`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "versionId",
+            "columnName": "versionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "profileId",
+            "columnName": "profileId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "radioDeviceId",
+            "columnName": "radioDeviceId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "antennaName",
+            "columnName": "antennaName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "antennaBands",
+            "columnName": "antennaBands",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "adapterNotes",
+            "columnName": "adapterNotes",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sampleRateHz",
+            "columnName": "sampleRateHz",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "basebandFilterHz",
+            "columnName": "basebandFilterHz",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lnaGainDb",
+            "columnName": "lnaGainDb",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vgaGainDb",
+            "columnName": "vgaGainDb",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rfAmpEnabled",
+            "columnName": "rfAmpEnabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "antennaPowerEnabled",
+            "columnName": "antennaPowerEnabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isCalibrated",
+            "columnName": "isCalibrated",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "photoReference",
+            "columnName": "photoReference",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtEpochMs",
+            "columnName": "createdAtEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "retiredAtEpochMs",
+            "columnName": "retiredAtEpochMs",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "versionId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_equipment_profiles_profileId_version",
+            "unique": true,
+            "columnNames": [
+              "profileId",
+              "version"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_equipment_profiles_profileId_version` ON `${TABLE_NAME}` (`profileId`, `version`)"
+          },
+          {
+            "name": "index_equipment_profiles_radioDeviceId",
+            "unique": false,
+            "columnNames": [
+              "radioDeviceId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_equipment_profiles_radioDeviceId` ON `${TABLE_NAME}` (`radioDeviceId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "radio_devices",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "radioDeviceId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "band_profiles",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`versionId` TEXT NOT NULL, `profileId` TEXT NOT NULL, `name` TEXT NOT NULL, `version` INTEGER NOT NULL, `equipmentProfileVersionId` TEXT NOT NULL, `binWidthHz` INTEGER NOT NULL, `targetRevisitMs` INTEGER NOT NULL, `thresholdSnrDb` REAL NOT NULL, `minimumBandwidthHz` INTEGER NOT NULL, `explorationAidDisclaimer` TEXT NOT NULL, `createdAtEpochMs` INTEGER NOT NULL, `retiredAtEpochMs` INTEGER, PRIMARY KEY(`versionId`), FOREIGN KEY(`equipmentProfileVersionId`) REFERENCES `equipment_profiles`(`versionId`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "versionId",
+            "columnName": "versionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "profileId",
+            "columnName": "profileId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "equipmentProfileVersionId",
+            "columnName": "equipmentProfileVersionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "binWidthHz",
+            "columnName": "binWidthHz",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "targetRevisitMs",
+            "columnName": "targetRevisitMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "thresholdSnrDb",
+            "columnName": "thresholdSnrDb",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "minimumBandwidthHz",
+            "columnName": "minimumBandwidthHz",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "explorationAidDisclaimer",
+            "columnName": "explorationAidDisclaimer",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtEpochMs",
+            "columnName": "createdAtEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "retiredAtEpochMs",
+            "columnName": "retiredAtEpochMs",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "versionId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_band_profiles_profileId_version",
+            "unique": true,
+            "columnNames": [
+              "profileId",
+              "version"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_band_profiles_profileId_version` ON `${TABLE_NAME}` (`profileId`, `version`)"
+          },
+          {
+            "name": "index_band_profiles_equipmentProfileVersionId",
+            "unique": false,
+            "columnNames": [
+              "equipmentProfileVersionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_band_profiles_equipmentProfileVersionId` ON `${TABLE_NAME}` (`equipmentProfileVersionId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "equipment_profiles",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "equipmentProfileVersionId"
+            ],
+            "referencedColumns": [
+              "versionId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "band_ranges",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`bandProfileVersionId` TEXT NOT NULL, `kind` TEXT NOT NULL, `ordinal` INTEGER NOT NULL, `startHz` INTEGER NOT NULL, `endHz` INTEGER NOT NULL, PRIMARY KEY(`bandProfileVersionId`, `kind`, `ordinal`), FOREIGN KEY(`bandProfileVersionId`) REFERENCES `band_profiles`(`versionId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "bandProfileVersionId",
+            "columnName": "bandProfileVersionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ordinal",
+            "columnName": "ordinal",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startHz",
+            "columnName": "startHz",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endHz",
+            "columnName": "endHz",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "bandProfileVersionId",
+            "kind",
+            "ordinal"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_band_ranges_bandProfileVersionId",
+            "unique": false,
+            "columnNames": [
+              "bandProfileVersionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_band_ranges_bandProfileVersionId` ON `${TABLE_NAME}` (`bandProfileVersionId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "band_profiles",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "bandProfileVersionId"
+            ],
+            "referencedColumns": [
+              "versionId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "surveys",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `bandProfileVersionId` TEXT NOT NULL, `equipmentProfileVersionId` TEXT NOT NULL, `status` TEXT NOT NULL, `revision` INTEGER NOT NULL, `startedAtEpochMs` INTEGER, `endedAtEpochMs` INTEGER, `lastWallTimeEpochMs` INTEGER NOT NULL, `lastMonotonicNs` INTEGER NOT NULL, `distanceMeters` REAL NOT NULL, `locationCoverageRatio` REAL NOT NULL, `droppedFrameCount` INTEGER NOT NULL, `overrunCount` INTEGER NOT NULL, `malformedFrameCount` INTEGER NOT NULL, `staleFixCount` INTEGER NOT NULL, `unlocatedObservationCount` INTEGER NOT NULL, `appVersion` TEXT NOT NULL, `detectorVersion` TEXT NOT NULL, `notes` TEXT NOT NULL, `failureExplanation` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`bandProfileVersionId`) REFERENCES `band_profiles`(`versionId`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`equipmentProfileVersionId`) REFERENCES `equipment_profiles`(`versionId`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bandProfileVersionId",
+            "columnName": "bandProfileVersionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "equipmentProfileVersionId",
+            "columnName": "equipmentProfileVersionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "revision",
+            "columnName": "revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedAtEpochMs",
+            "columnName": "startedAtEpochMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "endedAtEpochMs",
+            "columnName": "endedAtEpochMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "lastWallTimeEpochMs",
+            "columnName": "lastWallTimeEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastMonotonicNs",
+            "columnName": "lastMonotonicNs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "distanceMeters",
+            "columnName": "distanceMeters",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "locationCoverageRatio",
+            "columnName": "locationCoverageRatio",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "droppedFrameCount",
+            "columnName": "droppedFrameCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "overrunCount",
+            "columnName": "overrunCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "malformedFrameCount",
+            "columnName": "malformedFrameCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "staleFixCount",
+            "columnName": "staleFixCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "unlocatedObservationCount",
+            "columnName": "unlocatedObservationCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "appVersion",
+            "columnName": "appVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "detectorVersion",
+            "columnName": "detectorVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "failureExplanation",
+            "columnName": "failureExplanation",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_surveys_bandProfileVersionId",
+            "unique": false,
+            "columnNames": [
+              "bandProfileVersionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_surveys_bandProfileVersionId` ON `${TABLE_NAME}` (`bandProfileVersionId`)"
+          },
+          {
+            "name": "index_surveys_equipmentProfileVersionId",
+            "unique": false,
+            "columnNames": [
+              "equipmentProfileVersionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_surveys_equipmentProfileVersionId` ON `${TABLE_NAME}` (`equipmentProfileVersionId`)"
+          },
+          {
+            "name": "index_surveys_status",
+            "unique": false,
+            "columnNames": [
+              "status"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_surveys_status` ON `${TABLE_NAME}` (`status`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "band_profiles",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "bandProfileVersionId"
+            ],
+            "referencedColumns": [
+              "versionId"
+            ]
+          },
+          {
+            "table": "equipment_profiles",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "equipmentProfileVersionId"
+            ],
+            "referencedColumns": [
+              "versionId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "survey_state_events",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `surveyId` TEXT NOT NULL, `fromStatus` TEXT NOT NULL, `toStatus` TEXT NOT NULL, `wallTimeEpochMs` INTEGER NOT NULL, `monotonicNs` INTEGER NOT NULL, `explanation` TEXT, FOREIGN KEY(`surveyId`) REFERENCES `surveys`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "surveyId",
+            "columnName": "surveyId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fromStatus",
+            "columnName": "fromStatus",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "toStatus",
+            "columnName": "toStatus",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "wallTimeEpochMs",
+            "columnName": "wallTimeEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "monotonicNs",
+            "columnName": "monotonicNs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "explanation",
+            "columnName": "explanation",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_survey_state_events_surveyId",
+            "unique": false,
+            "columnNames": [
+              "surveyId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_survey_state_events_surveyId` ON `${TABLE_NAME}` (`surveyId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "surveys",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "surveyId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "location_fixes",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `surveyId` TEXT NOT NULL, `wallTimeEpochMs` INTEGER NOT NULL, `monotonicNs` INTEGER NOT NULL, `latitude` REAL NOT NULL, `longitude` REAL NOT NULL, `horizontalAccuracyM` REAL NOT NULL, `altitudeM` REAL, `speedMps` REAL, `bearingDegrees` REAL, `provider` TEXT NOT NULL, `isInterpolated` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`surveyId`) REFERENCES `surveys`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "surveyId",
+            "columnName": "surveyId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "wallTimeEpochMs",
+            "columnName": "wallTimeEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "monotonicNs",
+            "columnName": "monotonicNs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "latitude",
+            "columnName": "latitude",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "longitude",
+            "columnName": "longitude",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "horizontalAccuracyM",
+            "columnName": "horizontalAccuracyM",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "altitudeM",
+            "columnName": "altitudeM",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "speedMps",
+            "columnName": "speedMps",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "bearingDegrees",
+            "columnName": "bearingDegrees",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "provider",
+            "columnName": "provider",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isInterpolated",
+            "columnName": "isInterpolated",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_location_fixes_surveyId_monotonicNs",
+            "unique": false,
+            "columnNames": [
+              "surveyId",
+              "monotonicNs"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_location_fixes_surveyId_monotonicNs` ON `${TABLE_NAME}` (`surveyId`, `monotonicNs`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "surveys",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "surveyId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "spectrum_aggregates",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`surveyId` TEXT NOT NULL, `timeBucketStartEpochMs` INTEGER NOT NULL, `frequencyBinHz` INTEGER NOT NULL, `minimumPowerDbfs` REAL NOT NULL, `medianPowerDbfs` REAL NOT NULL, `maximumPowerDbfs` REAL NOT NULL, `noiseEstimateDbfs` REAL NOT NULL, `sampleCount` INTEGER NOT NULL, `locationFixId` TEXT, `locationState` TEXT NOT NULL, PRIMARY KEY(`surveyId`, `timeBucketStartEpochMs`, `frequencyBinHz`), FOREIGN KEY(`surveyId`) REFERENCES `surveys`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`locationFixId`) REFERENCES `location_fixes`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "fields": [
+          {
+            "fieldPath": "surveyId",
+            "columnName": "surveyId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timeBucketStartEpochMs",
+            "columnName": "timeBucketStartEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "frequencyBinHz",
+            "columnName": "frequencyBinHz",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "minimumPowerDbfs",
+            "columnName": "minimumPowerDbfs",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "medianPowerDbfs",
+            "columnName": "medianPowerDbfs",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "maximumPowerDbfs",
+            "columnName": "maximumPowerDbfs",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "noiseEstimateDbfs",
+            "columnName": "noiseEstimateDbfs",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sampleCount",
+            "columnName": "sampleCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "locationFixId",
+            "columnName": "locationFixId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "locationState",
+            "columnName": "locationState",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "surveyId",
+            "timeBucketStartEpochMs",
+            "frequencyBinHz"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_spectrum_aggregates_locationFixId",
+            "unique": false,
+            "columnNames": [
+              "locationFixId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_spectrum_aggregates_locationFixId` ON `${TABLE_NAME}` (`locationFixId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "surveys",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "surveyId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "location_fixes",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "locationFixId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "acquisition_gaps",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `surveyId` TEXT NOT NULL, `reason` TEXT NOT NULL, `startedWallTimeEpochMs` INTEGER NOT NULL, `startedMonotonicNs` INTEGER NOT NULL, `endedWallTimeEpochMs` INTEGER, `endedMonotonicNs` INTEGER, `droppedUnitCount` INTEGER NOT NULL, `explanation` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`surveyId`) REFERENCES `surveys`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "surveyId",
+            "columnName": "surveyId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reason",
+            "columnName": "reason",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedWallTimeEpochMs",
+            "columnName": "startedWallTimeEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedMonotonicNs",
+            "columnName": "startedMonotonicNs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endedWallTimeEpochMs",
+            "columnName": "endedWallTimeEpochMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "endedMonotonicNs",
+            "columnName": "endedMonotonicNs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "droppedUnitCount",
+            "columnName": "droppedUnitCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "explanation",
+            "columnName": "explanation",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_acquisition_gaps_surveyId_startedMonotonicNs",
+            "unique": false,
+            "columnNames": [
+              "surveyId",
+              "startedMonotonicNs"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_acquisition_gaps_surveyId_startedMonotonicNs` ON `${TABLE_NAME}` (`surveyId`, `startedMonotonicNs`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "surveys",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "surveyId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "health_snapshots",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `surveyId` TEXT NOT NULL, `wallTimeEpochMs` INTEGER NOT NULL, `monotonicNs` INTEGER NOT NULL, `usbBytesPerSecond` INTEGER NOT NULL, `nativeQueueDepth` INTEGER NOT NULL, `processingQueueDepth` INTEGER NOT NULL, `persistenceQueueDepth` INTEGER NOT NULL, `droppedNativeUnits` INTEGER NOT NULL, `droppedProcessingUnits` INTEGER NOT NULL, `droppedPersistenceUnits` INTEGER NOT NULL, `malformedFrameCount` INTEGER NOT NULL, `overrunCount` INTEGER NOT NULL, `staleFixCount` INTEGER NOT NULL, `serviceGapCount` INTEGER NOT NULL, `availableStorageBytes` INTEGER NOT NULL, `estimatedRemainingBytes` INTEGER NOT NULL, `batteryPercent` INTEGER, `thermalStatus` INTEGER, `warning` TEXT, FOREIGN KEY(`surveyId`) REFERENCES `surveys`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "surveyId",
+            "columnName": "surveyId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "wallTimeEpochMs",
+            "columnName": "wallTimeEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "monotonicNs",
+            "columnName": "monotonicNs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "usbBytesPerSecond",
+            "columnName": "usbBytesPerSecond",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nativeQueueDepth",
+            "columnName": "nativeQueueDepth",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "processingQueueDepth",
+            "columnName": "processingQueueDepth",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "persistenceQueueDepth",
+            "columnName": "persistenceQueueDepth",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "droppedNativeUnits",
+            "columnName": "droppedNativeUnits",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "droppedProcessingUnits",
+            "columnName": "droppedProcessingUnits",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "droppedPersistenceUnits",
+            "columnName": "droppedPersistenceUnits",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "malformedFrameCount",
+            "columnName": "malformedFrameCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "overrunCount",
+            "columnName": "overrunCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "staleFixCount",
+            "columnName": "staleFixCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serviceGapCount",
+            "columnName": "serviceGapCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "availableStorageBytes",
+            "columnName": "availableStorageBytes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "estimatedRemainingBytes",
+            "columnName": "estimatedRemainingBytes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "batteryPercent",
+            "columnName": "batteryPercent",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "thermalStatus",
+            "columnName": "thermalStatus",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "warning",
+            "columnName": "warning",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_health_snapshots_surveyId_monotonicNs",
+            "unique": false,
+            "columnNames": [
+              "surveyId",
+              "monotonicNs"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_health_snapshots_surveyId_monotonicNs` ON `${TABLE_NAME}` (`surveyId`, `monotonicNs`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "surveys",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "surveyId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "connection_state_events",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `radioDeviceId` TEXT NOT NULL, `fromState` TEXT NOT NULL, `toState` TEXT NOT NULL, `revision` INTEGER NOT NULL, `wallTimeEpochMs` INTEGER NOT NULL, `monotonicNs` INTEGER NOT NULL, `explanation` TEXT, FOREIGN KEY(`radioDeviceId`) REFERENCES `radio_devices`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "radioDeviceId",
+            "columnName": "radioDeviceId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fromState",
+            "columnName": "fromState",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "toState",
+            "columnName": "toState",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "revision",
+            "columnName": "revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "wallTimeEpochMs",
+            "columnName": "wallTimeEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "monotonicNs",
+            "columnName": "monotonicNs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "explanation",
+            "columnName": "explanation",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_connection_state_events_radioDeviceId",
+            "unique": false,
+            "columnNames": [
+              "radioDeviceId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_connection_state_events_radioDeviceId` ON `${TABLE_NAME}` (`radioDeviceId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "radio_devices",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "radioDeviceId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "detections",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `surveyId` TEXT NOT NULL, `fingerprintId` TEXT, `equipmentProfileVersionId` TEXT NOT NULL, `startedAtEpochMs` INTEGER NOT NULL, `endedAtEpochMs` INTEGER NOT NULL, `centerFrequencyHz` INTEGER NOT NULL, `bandwidthHz` INTEGER NOT NULL, `peakPowerDbfs` REAL NOT NULL, `medianPowerDbfs` REAL NOT NULL, `snrDb` REAL NOT NULL, `locationFixId` TEXT, `detectorVersion` TEXT NOT NULL, `kind` TEXT NOT NULL, `qualityFlags` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`surveyId`) REFERENCES `surveys`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`fingerprintId`) REFERENCES `signal_fingerprints`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL , FOREIGN KEY(`locationFixId`) REFERENCES `location_fixes`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "surveyId",
+            "columnName": "surveyId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fingerprintId",
+            "columnName": "fingerprintId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "equipmentProfileVersionId",
+            "columnName": "equipmentProfileVersionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedAtEpochMs",
+            "columnName": "startedAtEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endedAtEpochMs",
+            "columnName": "endedAtEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "centerFrequencyHz",
+            "columnName": "centerFrequencyHz",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bandwidthHz",
+            "columnName": "bandwidthHz",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "peakPowerDbfs",
+            "columnName": "peakPowerDbfs",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "medianPowerDbfs",
+            "columnName": "medianPowerDbfs",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "snrDb",
+            "columnName": "snrDb",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "locationFixId",
+            "columnName": "locationFixId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "detectorVersion",
+            "columnName": "detectorVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "qualityFlags",
+            "columnName": "qualityFlags",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_detections_surveyId",
+            "unique": false,
+            "columnNames": [
+              "surveyId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_detections_surveyId` ON `${TABLE_NAME}` (`surveyId`)"
+          },
+          {
+            "name": "index_detections_fingerprintId",
+            "unique": false,
+            "columnNames": [
+              "fingerprintId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_detections_fingerprintId` ON `${TABLE_NAME}` (`fingerprintId`)"
+          },
+          {
+            "name": "index_detections_equipmentProfileVersionId",
+            "unique": false,
+            "columnNames": [
+              "equipmentProfileVersionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_detections_equipmentProfileVersionId` ON `${TABLE_NAME}` (`equipmentProfileVersionId`)"
+          },
+          {
+            "name": "index_detections_locationFixId",
+            "unique": false,
+            "columnNames": [
+              "locationFixId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_detections_locationFixId` ON `${TABLE_NAME}` (`locationFixId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "surveys",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "surveyId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "signal_fingerprints",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "fingerprintId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "location_fixes",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "locationFixId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "signal_fingerprints",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `equipmentProfileVersionId` TEXT NOT NULL, `nominalFrequencyHz` INTEGER NOT NULL, `typicalBandwidthHz` INTEGER NOT NULL, `firstSeenAtEpochMs` INTEGER NOT NULL, `lastSeenAtEpochMs` INTEGER NOT NULL, `occurrenceCount` INTEGER NOT NULL, `dutyCycleEstimate` REAL NOT NULL, `typicalBurstDurationMs` INTEGER, `typicalRepeatIntervalMs` INTEGER, `noveltyScore` REAL NOT NULL, `algorithmVersion` TEXT NOT NULL, `state` TEXT NOT NULL, `userLabel` TEXT NOT NULL, `tags` TEXT NOT NULL, `notes` TEXT NOT NULL, `minimumLatitude` REAL, `maximumLatitude` REAL, `minimumLongitude` REAL, `maximumLongitude` REAL, `locatedObservationCount` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "equipmentProfileVersionId",
+            "columnName": "equipmentProfileVersionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nominalFrequencyHz",
+            "columnName": "nominalFrequencyHz",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "typicalBandwidthHz",
+            "columnName": "typicalBandwidthHz",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "firstSeenAtEpochMs",
+            "columnName": "firstSeenAtEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastSeenAtEpochMs",
+            "columnName": "lastSeenAtEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "occurrenceCount",
+            "columnName": "occurrenceCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dutyCycleEstimate",
+            "columnName": "dutyCycleEstimate",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "typicalBurstDurationMs",
+            "columnName": "typicalBurstDurationMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "typicalRepeatIntervalMs",
+            "columnName": "typicalRepeatIntervalMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "noveltyScore",
+            "columnName": "noveltyScore",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "algorithmVersion",
+            "columnName": "algorithmVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "state",
+            "columnName": "state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "userLabel",
+            "columnName": "userLabel",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tags",
+            "columnName": "tags",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "minimumLatitude",
+            "columnName": "minimumLatitude",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "maximumLatitude",
+            "columnName": "maximumLatitude",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "minimumLongitude",
+            "columnName": "minimumLongitude",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "maximumLongitude",
+            "columnName": "maximumLongitude",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "locatedObservationCount",
+            "columnName": "locatedObservationCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_signal_fingerprints_equipmentProfileVersionId",
+            "unique": false,
+            "columnNames": [
+              "equipmentProfileVersionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_signal_fingerprints_equipmentProfileVersionId` ON `${TABLE_NAME}` (`equipmentProfileVersionId`)"
+          },
+          {
+            "name": "index_signal_fingerprints_state",
+            "unique": false,
+            "columnNames": [
+              "state"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_signal_fingerprints_state` ON `${TABLE_NAME}` (`state`)"
+          }
+        ]
+      },
+      {
+        "tableName": "fingerprint_hints",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`fingerprintId` TEXT NOT NULL, `rank` INTEGER NOT NULL, `category` TEXT NOT NULL, `confidence` REAL NOT NULL, `evidence` TEXT NOT NULL, PRIMARY KEY(`fingerprintId`, `rank`), FOREIGN KEY(`fingerprintId`) REFERENCES `signal_fingerprints`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "fingerprintId",
+            "columnName": "fingerprintId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rank",
+            "columnName": "rank",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "category",
+            "columnName": "category",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "confidence",
+            "columnName": "confidence",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "evidence",
+            "columnName": "evidence",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "fingerprintId",
+            "rank"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_fingerprint_hints_fingerprintId",
+            "unique": false,
+            "columnNames": [
+              "fingerprintId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_fingerprint_hints_fingerprintId` ON `${TABLE_NAME}` (`fingerprintId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "signal_fingerprints",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "fingerprintId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "fingerprint_provenance",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `fingerprintId` TEXT NOT NULL, `operation` TEXT NOT NULL, `sourceFingerprintIds` TEXT NOT NULL, `atEpochMs` INTEGER NOT NULL, `explanation` TEXT NOT NULL, FOREIGN KEY(`fingerprintId`) REFERENCES `signal_fingerprints`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fingerprintId",
+            "columnName": "fingerprintId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "operation",
+            "columnName": "operation",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceFingerprintIds",
+            "columnName": "sourceFingerprintIds",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "atEpochMs",
+            "columnName": "atEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "explanation",
+            "columnName": "explanation",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_fingerprint_provenance_fingerprintId",
+            "unique": false,
+            "columnNames": [
+              "fingerprintId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_fingerprint_provenance_fingerprintId` ON `${TABLE_NAME}` (`fingerprintId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "signal_fingerprints",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "fingerprintId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "reprocessing_jobs",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `surveyId` TEXT NOT NULL, `detectorVersion` TEXT NOT NULL, `clusteringVersion` TEXT NOT NULL, `status` TEXT NOT NULL, `startedAtEpochMs` INTEGER NOT NULL, `endedAtEpochMs` INTEGER, `inputAggregateCount` INTEGER NOT NULL, `detectionCount` INTEGER NOT NULL, `fingerprintCount` INTEGER NOT NULL, `failureExplanation` TEXT, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "surveyId",
+            "columnName": "surveyId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "detectorVersion",
+            "columnName": "detectorVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "clusteringVersion",
+            "columnName": "clusteringVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedAtEpochMs",
+            "columnName": "startedAtEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endedAtEpochMs",
+            "columnName": "endedAtEpochMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "inputAggregateCount",
+            "columnName": "inputAggregateCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "detectionCount",
+            "columnName": "detectionCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fingerprintCount",
+            "columnName": "fingerprintCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "failureExplanation",
+            "columnName": "failureExplanation",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_reprocessing_jobs_surveyId",
+            "unique": false,
+            "columnNames": [
+              "surveyId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_reprocessing_jobs_surveyId` ON `${TABLE_NAME}` (`surveyId`)"
+          },
+          {
+            "name": "index_reprocessing_jobs_status",
+            "unique": false,
+            "columnNames": [
+              "status"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_reprocessing_jobs_status` ON `${TABLE_NAME}` (`status`)"
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'bd025a5b89c655b09cf164123d87c42c')"
+    ]
+  }
+}

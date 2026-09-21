@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "detectorVersion": "detector-v1",
+  "clusteringVersion": "cluster-v1",
+  "expectations": {
+    "noise-only": { "detectionCount": 0, "fingerprintCount": 0 },
+    "continuous-carrier": { "detectionCount": 1, "kind": "PERSISTENT_CARRIER" },
+    "repeating-ook": { "detectionCount": 3, "kind": "DISCRETE_BURST" },
+    "two-level-fsk": { "fingerprintCount": 1, "hint": "TWO_LEVEL_FSK_LIKE" },
+    "center-artifact": { "flags": ["CENTER_DC"] },
+    "broadband-overload": { "flags": ["BROADBAND_IMPULSE", "OVERLOAD"] },
+    "missing-reordered": { "flags": ["CORRUPT_FRAME"], "orderIndependent": true }
+  }
+}

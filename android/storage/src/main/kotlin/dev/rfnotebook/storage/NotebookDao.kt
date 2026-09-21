@@ -34,6 +34,9 @@ interface NotebookDao {
     @Query("SELECT * FROM surveys ORDER BY lastWallTimeEpochMs DESC")
     fun observeSurveys(): Flow<List<SurveyEntity>>
 
+    @Query("SELECT * FROM surveys WHERE status = 'COMPLETE' ORDER BY endedAtEpochMs DESC, lastWallTimeEpochMs DESC")
+    suspend fun completedSurveys(): List<SurveyEntity>
+
     @Query("UPDATE surveys SET status = :status, revision = :revision, startedAtEpochMs = :startedAt, endedAtEpochMs = :endedAt, lastWallTimeEpochMs = :wallTime, lastMonotonicNs = :monotonicNs, failureExplanation = :failure WHERE id = :surveyId AND revision = :expectedRevision")
     suspend fun compareAndSetSurveyState(
         surveyId: String,
@@ -75,6 +78,9 @@ interface NotebookDao {
 
     @Query("SELECT * FROM location_fixes WHERE surveyId = :surveyId AND monotonicNs BETWEEN :fromNs AND :toNs ORDER BY monotonicNs")
     suspend fun locationFixes(surveyId: String, fromNs: Long, toNs: Long): List<LocationFixEntity>
+
+    @Query("SELECT * FROM location_fixes WHERE id IN (:ids)")
+    suspend fun locationFixesByIds(ids: List<String>): List<LocationFixEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAggregates(aggregates: List<SpectrumAggregateEntity>)
@@ -170,4 +176,98 @@ interface NotebookDao {
 
     @Query("SELECT * FROM health_snapshots WHERE surveyId = :surveyId ORDER BY monotonicNs DESC LIMIT 1")
     suspend fun latestHealth(surveyId: String): HealthSnapshotEntity?
+
+    @Query("SELECT * FROM spectrum_aggregates WHERE surveyId = :surveyId ORDER BY timeBucketStartEpochMs, frequencyBinHz")
+    suspend fun surveyAggregates(surveyId: String): List<SpectrumAggregateEntity>
+
+    @Query("SELECT * FROM detections WHERE surveyId = :surveyId ORDER BY startedAtEpochMs, centerFrequencyHz")
+    suspend fun surveyDetections(surveyId: String): List<DetectionEntity>
+
+    @Query("SELECT * FROM detections WHERE surveyId != :surveyId ORDER BY equipmentProfileVersionId, startedAtEpochMs, centerFrequencyHz")
+    suspend fun detectionsExceptSurvey(surveyId: String): List<DetectionEntity>
+
+    @Query("SELECT * FROM detections WHERE fingerprintId = :fingerprintId ORDER BY startedAtEpochMs")
+    suspend fun fingerprintDetections(fingerprintId: String): List<DetectionEntity>
+
+    @Query("SELECT * FROM detections WHERE id IN (:ids)")
+    suspend fun detectionsByIds(ids: List<String>): List<DetectionEntity>
+
+    @Query("SELECT * FROM signal_fingerprints ORDER BY noveltyScore DESC, lastSeenAtEpochMs DESC")
+    fun observeFingerprints(): Flow<List<SignalFingerprintEntity>>
+
+    @Query("SELECT * FROM signal_fingerprints ORDER BY noveltyScore DESC, lastSeenAtEpochMs DESC")
+    suspend fun fingerprints(): List<SignalFingerprintEntity>
+
+    @Query("SELECT * FROM signal_fingerprints WHERE id = :fingerprintId")
+    suspend fun fingerprint(fingerprintId: String): SignalFingerprintEntity?
+
+    @Query("SELECT * FROM fingerprint_hints WHERE fingerprintId = :fingerprintId ORDER BY rank")
+    suspend fun fingerprintHints(fingerprintId: String): List<FingerprintHintEntity>
+
+    @Query("SELECT * FROM fingerprint_provenance WHERE fingerprintId = :fingerprintId ORDER BY atEpochMs, id")
+    suspend fun fingerprintProvenance(fingerprintId: String): List<FingerprintProvenanceEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDetections(values: List<DetectionEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertFingerprints(values: List<SignalFingerprintEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertFingerprintHints(values: List<FingerprintHintEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertFingerprintProvenance(values: List<FingerprintProvenanceEntity>)
+
+    @Upsert
+    suspend fun upsertReprocessingJob(job: ReprocessingJobEntity)
+
+    @Query("UPDATE detections SET fingerprintId = :fingerprintId WHERE id IN (:detectionIds)")
+    suspend fun assignFingerprint(fingerprintId: String, detectionIds: List<String>)
+
+    @Query("DELETE FROM detections WHERE surveyId = :surveyId")
+    suspend fun deleteSurveyDetections(surveyId: String)
+
+    @Query("DELETE FROM signal_fingerprints WHERE id NOT IN (SELECT DISTINCT fingerprintId FROM detections WHERE fingerprintId IS NOT NULL)")
+    suspend fun deleteUnreferencedFingerprints()
+
+    @Transaction
+    suspend fun replaceDerivedSurveyData(
+        surveyId: String,
+        detections: List<DetectionEntity>,
+        fingerprints: List<SignalFingerprintEntity>,
+        hints: List<FingerprintHintEntity>,
+        provenance: List<FingerprintProvenanceEntity>,
+        detectionAssignments: Map<String, List<String>>,
+    ) {
+        deleteSurveyDetections(surveyId)
+        deleteUnreferencedFingerprints()
+        insertFingerprints(fingerprints)
+        insertDetections(detections)
+        detectionAssignments.forEach { (fingerprintId, detectionIds) -> assignFingerprint(fingerprintId, detectionIds) }
+        insertFingerprintHints(hints)
+        insertFingerprintProvenance(provenance)
+        deleteUnreferencedFingerprints()
+    }
+
+    @Query("UPDATE signal_fingerprints SET state = :state, userLabel = :userLabel, tags = :tags, notes = :notes WHERE id = :fingerprintId")
+    suspend fun updateFingerprintUserFields(fingerprintId: String, state: String, userLabel: String, tags: String, notes: String): Int
+
+    @Query("DELETE FROM signal_fingerprints WHERE id IN (:fingerprintIds)")
+    suspend fun deleteFingerprints(fingerprintIds: List<String>)
+
+    @Transaction
+    suspend fun persistFingerprintCorrection(
+        sourceFingerprintIds: List<String>,
+        fingerprints: List<SignalFingerprintEntity>,
+        hints: List<FingerprintHintEntity>,
+        provenance: List<FingerprintProvenanceEntity>,
+        detectionAssignments: Map<String, List<String>>,
+    ) {
+        insertFingerprints(fingerprints)
+        detectionAssignments.forEach { (fingerprintId, detectionIds) -> assignFingerprint(fingerprintId, detectionIds) }
+        insertFingerprintHints(hints)
+        insertFingerprintProvenance(provenance)
+        deleteFingerprints(sourceFingerprintIds)
+    }
 }
