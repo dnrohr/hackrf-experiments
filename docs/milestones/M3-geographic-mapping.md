@@ -1,6 +1,6 @@
 # M3 — Geographic mapping
 
-- Status: Ready
+- Status: Complete
 - Depends on: M2 — Detection and fingerprinting
 - Produces: Uncertainty-aware maps and comparable-survey exploration
 - Next milestone: M4 — Focused capture and export
@@ -104,22 +104,22 @@ tests, screenshots or recordings, and field evidence.
 
 ## Acceptance criteria
 
-- [ ] All seven owned requirements have traceability evidence.
-- [ ] A fingerprint opens to a route and relative-strength map with uncertainty.
-- [ ] Cell size and confidence respond correctly to GPS accuracy and support.
-- [ ] A single extreme sample cannot alone create a high-confidence hot cell.
-- [ ] Missing and interpolated location remain distinguishable.
-- [ ] Incompatible surveys are separated or excluded with an explanation.
-- [ ] The UI never labels a point as a transmitter location.
-- [ ] Every map result has an equivalent non-map representation.
-- [ ] A downloaded region works after network access is disabled.
-- [ ] Required attribution remains visible online and offline.
-- [ ] Large-dataset pan, zoom, filter, and selection meet the recorded performance
+- [x] All seven owned requirements have traceability evidence.
+- [x] A fingerprint opens to a route and relative-strength map with uncertainty.
+- [x] Cell size and confidence respond correctly to GPS accuracy and support.
+- [x] A single extreme sample cannot alone create a high-confidence hot cell.
+- [x] Missing and interpolated location remain distinguishable.
+- [x] Incompatible surveys are separated or excluded with an explanation.
+- [x] The UI never labels a point as a transmitter location.
+- [x] Every map result has an equivalent non-map representation.
+- [x] A downloaded region works after network access is disabled.
+- [x] Required attribution remains visible online and offline.
+- [x] Large-dataset pan, zoom, filter, and selection meet the recorded performance
   budget on the target phone.
-- [ ] Repeat-route results and known limitations are documented without
+- [x] Repeat-route results and known limitations are documented without
   committing precise home coordinates.
-- [ ] Earlier milestone regression suites pass.
-- [ ] `scripts/Test-Planning.ps1` passes after handoff and roadmap updates.
+- [x] Earlier milestone regression suites pass.
+- [x] `scripts/Test-Planning.ps1` passes after handoff and roadmap updates.
 
 ## Validation
 
@@ -147,11 +147,23 @@ under `docs/evidence/M3/`.
 
 Complete this section before marking M3 complete:
 
-- Commit and branch:
-- Delivered behavior:
-- Validation summary:
-- Field/map evidence:
-- Aggregation version:
-- Tile/offline decisions:
-- Known limitations:
-- M4 starting point and cautions:
+- Commit and branch: `main`; local M3-prefixed commit created at handoff, not pushed.
+- Delivered behavior: production MapLibre map; route, gap, accuracy, and adaptive
+  strength cells; selected and comparison fingerprints; every required filter;
+  comparable-equipment protection; equivalent list; complete offline workflow.
+- Validation summary: host `lint test assembleDebug`; Pixel 8a full connected
+  suite; receive-only/native-export audits; planning validation. Exact results
+  and budgets are under `docs/evidence/M3/`.
+- Field/map evidence: deterministic coordinate-redacted repeat-route fixture,
+  light/dark and 150% text screenshots, 20,000-observation Pixel run, and
+  online-download/airplane-mode cached rendering.
+- Aggregation version: `m3-grid-v1`.
+- Tile/offline decisions: ADR 007 accepts MapLibre Native 13.6.1 with
+  OpenFreeMap Liberty, required attribution, local-only overlays, bounded
+  resumable regions, stored byte/resource status, and confirmed removal.
+- Known limitations: see `docs/evidence/M3/known-limitations.md`; especially
+  uncalibrated strength, public-provider availability, and M5 live-field audit.
+- M4 starting point and cautions: M4 may navigate from a fingerprint/map into
+  focused RX, but must preserve selected fingerprint/equipment context, local
+  privacy, receive-only native boundaries, gaps, and the prohibition on source
+  location claims. Do not treat map strength as calibrated capture power.

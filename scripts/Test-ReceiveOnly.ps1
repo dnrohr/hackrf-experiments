@@ -43,9 +43,9 @@ if ($mainActivity -notmatch '(?s)registerReceiver\(this, usbTopologyReceiver, us
     $failures.Add('System USB topology broadcasts must use a dedicated exported receiver; the app-private permission result remains non-exported.')
 }
 
-$mapPrototype = Get-Content -LiteralPath (Join-Path $sourceRoot 'maps\src\main\kotlin\dev\rfnotebook\maps\MapPrototypeView.kt') -Raw
-if ($mapPrototype -match 'demotiles\.maplibre\.org/style\.json') {
-    $failures.Add('The Android offline-region prototype must not use the MapLibre demo glyph URL that aborts the native offline downloader.')
+$productionMap = Get-Content -LiteralPath (Join-Path $sourceRoot 'maps\src\main\kotlin\dev\rfnotebook\maps\FieldMapView.kt') -Raw
+if ($productionMap -match 'demotiles\.maplibre\.org/style\.json') {
+    $failures.Add('The Android production map must not use the MapLibre demo glyph URL that aborts the native offline downloader.')
 }
 
 if ($failures.Count -gt 0) {

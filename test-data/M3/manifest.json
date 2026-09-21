@@ -1,0 +1,14 @@
+{
+  "name": "M3 synthetic repeated-route geographic observations",
+  "license": "CC0-1.0",
+  "origin": "Deterministically authored for RF Field Notebook; no field or home coordinates",
+  "coordinate_note": "Coordinates describe a synthetic path near Null Island and are not collected user data",
+  "strength_unit": "relative dBFS, uncalibrated",
+  "accuracy_unit": "meters",
+  "expected": {
+    "missing_locations": 1,
+    "interpolated_locations": 1,
+    "acquisition_gaps": 1,
+    "equipment_versions": ["equipment:v1", "equipment:v2"]
+  }
+}

@@ -62,11 +62,13 @@ import dev.rfnotebook.storage.SignalFingerprintEntity
 import dev.rfnotebook.storage.SurveyLaunch
 import dev.rfnotebook.storage.SurveySummary
 import dev.rfnotebook.domain.FingerprintState
+import dev.rfnotebook.maps.MapDataRepository
+import dev.rfnotebook.maps.MapDataset
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class AppPage { SETUP, PREFLIGHT, ACTIVE, SUMMARY, DISCOVERIES, DISCOVERY_DETAIL }
+private enum class AppPage { SETUP, PREFLIGHT, ACTIVE, SUMMARY, DISCOVERIES, DISCOVERY_DETAIL, MAP }
 
 class MainActivity : ComponentActivity() {
     private var usbPermissionState by mutableStateOf("unknown")
@@ -159,6 +161,8 @@ class MainActivity : ComponentActivity() {
         var problem by remember { mutableStateOf<String?>(null) }
         var discoveryState by remember { mutableStateOf(DiscoveryUiState(DiscoveryPhase.EMPTY)) }
         var discoveryDetail by remember { mutableStateOf<DiscoveryDetail?>(null) }
+        var mapDataset by remember { mutableStateOf<MapDataset?>(null) }
+        var mappedFingerprintId by remember { mutableStateOf<String?>(null) }
         val acquisition by SurveyAcquisitionStatus.state.collectAsState()
         val coroutineScope = rememberCoroutineScope()
         val storage = remember(rangeStart, rangeEnd, additionalRanges, excludedRanges, binWidth) {
@@ -181,7 +185,7 @@ class MainActivity : ComponentActivity() {
         ) {
             Text("RF Field Notebook", style = MaterialTheme.typography.headlineSmall)
             Text("Receive only • observed power is relative, not calibrated")
-            if (page != AppPage.DISCOVERIES && page != AppPage.DISCOVERY_DETAIL) {
+            if (page != AppPage.DISCOVERIES && page != AppPage.DISCOVERY_DETAIL && page != AppPage.MAP) {
                 OutlinedButton(onClick = {
                     discoveryState = DiscoveryUiState(DiscoveryPhase.PROCESSING)
                     page = AppPage.DISCOVERIES
@@ -321,7 +325,19 @@ class MainActivity : ComponentActivity() {
                             repository.detail(current.fingerprint.id)
                         }
                     }
-                }, onBack = { page = AppPage.DISCOVERIES }, onSplitLast = {
+                }, onBack = { page = AppPage.DISCOVERIES }, onMap = {
+                    val current = discoveryDetail ?: return@DiscoveryDetailPage
+                    mappedFingerprintId = current.fingerprint.id
+                    mapDataset = null
+                    page = AppPage.MAP
+                    coroutineScope.launch {
+                        mapDataset = withContext(Dispatchers.IO) {
+                            val ids = (listOf(current.fingerprint.id) + discoveryState.fingerprints.map { it.id })
+                                .distinct().take(8).toSet()
+                            MapDataRepository(NotebookDatabase.open(this@MainActivity).notebookDao()).load(ids)
+                        }
+                    }
+                }, onSplitLast = {
                     val current = discoveryDetail ?: return@DiscoveryDetailPage
                     val moved = current.detections.lastOrNull()?.id ?: return@DiscoveryDetailPage
                     coroutineScope.launch {
@@ -335,6 +351,11 @@ class MainActivity : ComponentActivity() {
                         }.onFailure { problem = it.message }
                     }
                 })
+                AppPage.MAP -> MapExplorerPage(
+                    dataset = mapDataset,
+                    initialFingerprintId = mappedFingerprintId,
+                    onBack = { page = AppPage.DISCOVERY_DETAIL },
+                )
             }
             problem?.let { Text("Problem: $it", color = MaterialTheme.colorScheme.error) }
             launchProblem?.let { Text("Problem: $it", color = MaterialTheme.colorScheme.error) }

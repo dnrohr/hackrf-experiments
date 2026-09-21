@@ -1,0 +1,9 @@
+id,fingerprint_id,survey_id,equipment_version,timestamp_ms,frequency_hz,bandwidth_hz,type,relative_dbfs,confidence,latitude,longitude,accuracy_m,location_kind,gap
+a1,fp-a,route-a,equipment:v1,1000,915000000,100000,DISCRETE_BURST,-68,0.8,0.0010,0.0010,5,DIRECT,
+a2,fp-a,route-a,equipment:v1,2000,915000000,100000,DISCRETE_BURST,-59,0.9,0.0015,0.0015,7,DIRECT,
+a3,fp-a,route-a,equipment:v1,3000,915000000,100000,DISCRETE_BURST,-52,0.9,0.0020,0.0020,10,INTERPOLATED,USB_STALL
+b1,fp-a,route-b,equipment:v1,11000,915000000,100000,DISCRETE_BURST,-70,0.8,0.0010,0.0010,6,DIRECT,
+b2,fp-a,route-b,equipment:v1,12000,915000000,100000,DISCRETE_BURST,-58,0.9,0.0015,0.0015,8,DIRECT,
+b3,fp-a,route-b,equipment:v1,13000,915000000,100000,DISCRETE_BURST,-50,0.9,0.0020,0.0020,12,DIRECT,
+c1,fp-a,changed-gain,equipment:v2,21000,915000000,100000,DISCRETE_BURST,-38,0.9,0.0015,0.0015,6,DIRECT,
+m1,fp-a,route-a,equipment:v1,4000,915000000,100000,DISCRETE_BURST,-62,0.7,,, ,MISSING,

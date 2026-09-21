@@ -353,6 +353,12 @@ MapLibre provides Android map APIs and offline regions; see
 and its [offline-region API](https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.offline/index.html).
 The tile provider and attribution requirements must be selected before release.
 
+ADR 007 selects the OpenFreeMap Liberty style for the initial production
+basemap. The app keeps RF and location overlays local, discloses that an online
+provider can observe requested basemap tile areas, preserves required
+OpenFreeMap/OpenMapTiles/OpenStreetMap attribution, and uses rebuildable
+accuracy-bounded aggregation version `m3-grid-v1`.
+
 ### 9.9 Focused IQ capture
 
 - **FR-CAP-001:** Capture signed 8-bit interleaved I/Q at an explicit center
@@ -839,9 +845,13 @@ phone before full application construction begins.
 2. USB-C hub and external power arrangement.
 3. Android ABIs to ship initially.
 4. Native dependency build and redistribution/license strategy.
-5. Map tile provider, offline terms, attribution, and cache budget.
+5. Resolved by ADR 007 for the initial release: OpenFreeMap Liberty with
+   explicit offline regions, attribution, progress/byte reporting, and no
+   automatic survey-data access. M5 re-checks current terms before release.
 6. Initial sweep bin width and revisit targets after device benchmarks.
-7. Maximum accepted GPS error for default map aggregation.
+7. Resolved by ADR 007: no hard fix is invented or discarded solely by a map
+   threshold; cells expand to at least twice the largest supporting reported
+   accuracy, while stale and missing fixes stay explicitly unplaced.
 8. Whether the first distribution is private sideloading or Google Play.
 9. Exact survey archive schema and forward-compatibility rules.
 10. Name and visual identity after the technical spikes validate feasibility.

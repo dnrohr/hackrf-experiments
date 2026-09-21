@@ -1,6 +1,6 @@
 # M4 — Focused capture and export
 
-- Status: Blocked by M3
+- Status: Ready
 - Depends on: M3 — Geographic mapping
 - Produces: Bounded IQ captures and privacy-controlled interoperable bundles
 - Next milestone: M5 — Field hardening and release

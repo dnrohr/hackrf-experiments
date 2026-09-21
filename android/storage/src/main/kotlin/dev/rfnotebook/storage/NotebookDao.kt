@@ -82,6 +82,9 @@ interface NotebookDao {
     @Query("SELECT * FROM location_fixes WHERE id IN (:ids)")
     suspend fun locationFixesByIds(ids: List<String>): List<LocationFixEntity>
 
+    @Query("SELECT * FROM location_fixes WHERE surveyId = :surveyId ORDER BY wallTimeEpochMs, monotonicNs")
+    suspend fun surveyLocationFixes(surveyId: String): List<LocationFixEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAggregates(aggregates: List<SpectrumAggregateEntity>)
 
