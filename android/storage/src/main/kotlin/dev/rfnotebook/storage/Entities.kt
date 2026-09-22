@@ -409,3 +409,28 @@ data class ReprocessingJobEntity(
     val fingerprintCount: Int,
     val failureExplanation: String?,
 )
+
+@Entity(tableName = "iq_captures", indices = [Index("fingerprintId"), Index("surveyId"), Index("status")])
+data class IQCaptureEntity(
+    @androidx.room.PrimaryKey val id: String,
+    val fingerprintId: String?,
+    val surveyId: String?,
+    val filePath: String,
+    val sidecarPath: String,
+    val previewPath: String,
+    val startedAtEpochMs: Long,
+    val durationMs: Long,
+    val centerFrequencyHz: Long,
+    val sampleRateHz: Int,
+    val sampleFormat: String,
+    val equipmentProfileVersionId: String,
+    val locationFixId: String?,
+    val expectedByteCount: Long,
+    val actualByteCount: Long,
+    val complexSampleCount: Long,
+    val gapCount: Long,
+    val overrunCount: Long,
+    val sha256: String,
+    val notes: String,
+    val status: String,
+)

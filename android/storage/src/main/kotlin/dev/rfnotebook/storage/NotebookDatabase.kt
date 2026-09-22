@@ -25,8 +25,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         FingerprintHintEntity::class,
         FingerprintProvenanceEntity::class,
         ReprocessingJobEntity::class,
+        IQCaptureEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class NotebookDatabase : RoomDatabase() {
@@ -42,7 +43,7 @@ abstract class NotebookDatabase : RoomDatabase() {
                 context.applicationContext,
                 NotebookDatabase::class.java,
                 DATABASE_NAME,
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build().also { instance = it }
         }
 
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -83,6 +84,15 @@ abstract class NotebookDatabase : RoomDatabase() {
                 db.execSQL("""CREATE TABLE IF NOT EXISTS reprocessing_jobs (id TEXT NOT NULL PRIMARY KEY, surveyId TEXT NOT NULL, detectorVersion TEXT NOT NULL, clusteringVersion TEXT NOT NULL, status TEXT NOT NULL, startedAtEpochMs INTEGER NOT NULL, endedAtEpochMs INTEGER, inputAggregateCount INTEGER NOT NULL, detectionCount INTEGER NOT NULL, fingerprintCount INTEGER NOT NULL, failureExplanation TEXT)""")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_reprocessing_jobs_surveyId ON reprocessing_jobs(surveyId)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_reprocessing_jobs_status ON reprocessing_jobs(status)")
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""CREATE TABLE IF NOT EXISTS iq_captures (id TEXT NOT NULL PRIMARY KEY, fingerprintId TEXT, surveyId TEXT, filePath TEXT NOT NULL, sidecarPath TEXT NOT NULL, previewPath TEXT NOT NULL, startedAtEpochMs INTEGER NOT NULL, durationMs INTEGER NOT NULL, centerFrequencyHz INTEGER NOT NULL, sampleRateHz INTEGER NOT NULL, sampleFormat TEXT NOT NULL, equipmentProfileVersionId TEXT NOT NULL, locationFixId TEXT, expectedByteCount INTEGER NOT NULL, actualByteCount INTEGER NOT NULL, complexSampleCount INTEGER NOT NULL, gapCount INTEGER NOT NULL, overrunCount INTEGER NOT NULL, sha256 TEXT NOT NULL, notes TEXT NOT NULL, status TEXT NOT NULL)""")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_iq_captures_fingerprintId ON iq_captures(fingerprintId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_iq_captures_surveyId ON iq_captures(surveyId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_iq_captures_status ON iq_captures(status)")
             }
         }
     }

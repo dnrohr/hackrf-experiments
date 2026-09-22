@@ -10,7 +10,7 @@ android {
         minSdk = 29
         targetSdk = 36
         versionCode = 1
-        versionName = "0.3.0-m3"
+        versionName = "0.4.0-m4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true }
@@ -19,6 +19,7 @@ dependencies {
     // Last stable BOM whose artifacts compile against the stable Android 16 SDK.
     implementation(platform("androidx.compose:compose-bom:2026.06.01"))
     implementation("androidx.activity:activity-compose:1.12.4")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.4")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
@@ -28,6 +29,7 @@ dependencies {
     implementation(project(":maps"))
     implementation(project(":storage"))
     implementation(project(":radio-hackrf-native"))
+    implementation(project(":radio-api"))
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation(platform("androidx.compose:compose-bom:2026.06.01"))

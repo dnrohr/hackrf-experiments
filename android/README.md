@@ -1,9 +1,25 @@
 # RF Field Notebook Android application
 
-This project contains the M2 receive-only survey and discovery foundation. The application
+This project contains the M4 receive-only field notebook. The application
 discovers a permitted HackRF, versions equipment and band profiles, runs a
 foreground spectrum survey, associates observations with location fixes, and
 stores one-second spectrum aggregates plus explicit health and gap records.
+
+## M4 focused IQ capture and bundles
+
+From setup, grant HackRF USB permission and choose **Manual focused RX / IQ
+capture**, or enter from a discovery detail. Start the focused preview first so
+the app measures sustained USB delivery. Captures are manual, 0.25–30 seconds,
+signed 8-bit interleaved I/Q (`.cs8`), and use a fixed 256 MiB storage reserve.
+RF amplifier and antenna-port power remain off.
+
+Completed captures live in app-private storage with JSON sidecars and PGM
+previews. Review IQ, route, coordinate, note, and device-suffix choices before
+opening Android's share sheet. Share archives in cache expire after 24 hours.
+Use **Import validated survey bundle** for same-version bundles; unsafe or
+unsupported archives are rejected before any imported directory is committed.
+Desktop validation commands are in
+`docs/evidence/M4/schema-and-interoperability.md`.
 
 ## M2 discovery interfaces
 

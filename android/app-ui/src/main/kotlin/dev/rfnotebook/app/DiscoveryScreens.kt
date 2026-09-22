@@ -136,6 +136,7 @@ fun DiscoveryDetailPage(
     onSave: (String, Set<String>, String) -> Unit,
     onBack: () -> Unit,
     onMap: () -> Unit = {},
+    onCapture: () -> Unit = {},
     onSplitLast: () -> Unit = {},
 ) {
     Card(Modifier.fillMaxWidth()) {
@@ -176,7 +177,9 @@ fun DiscoveryDetailPage(
                 Button(onClick = onMap, modifier = Modifier.fillMaxWidth()) {
                     Text("Open observed relative strength map")
                 }
-                Text("Focused IQ capture becomes available in M4.")
+                Button(onClick = onCapture, modifier = Modifier.fillMaxWidth()) {
+                    Text("Revisit in focused RX and capture IQ")
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     OutlinedButton(onClick = { onState(FingerprintState.INTERESTING) }) { Text("Interesting") }
                     OutlinedButton(onClick = { onState(FingerprintState.IGNORED) }) { Text("Ignore") }

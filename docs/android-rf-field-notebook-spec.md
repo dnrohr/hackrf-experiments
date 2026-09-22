@@ -853,7 +853,9 @@ phone before full application construction begins.
    threshold; cells expand to at least twice the largest supporting reported
    accuracy, while stale and missing fixes stay explicitly unplaced.
 8. Whether the first distribution is private sideloading or Google Play.
-9. Exact survey archive schema and forward-compatibility rules.
+9. Resolved by ADR 008 for the MVP: strict bundle and capture-sidecar schema
+   `1.0.0`, with hash/length inventory, staged same-version import, independent
+   redaction controls, and explicit future-version migration.
 10. Name and visual identity after the technical spikes validate feasibility.
 
 ## 24. Definition of ready for implementation

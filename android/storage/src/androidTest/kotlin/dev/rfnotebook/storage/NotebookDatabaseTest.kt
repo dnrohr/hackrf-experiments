@@ -196,6 +196,19 @@ class NotebookDatabaseTest {
     }
 
     @Test
+    fun migrationFromVersionThreeAddsAtomicCaptureIndex() {
+        val name = "migration-m4-${UUID.randomUUID()}"
+        migrationHelper.createDatabase(name, 3).close()
+
+        migrationHelper.runMigrationsAndValidate(name, 4, true, NotebookDatabase.MIGRATION_3_4).use { migrated ->
+            migrated.query("SELECT COUNT(*) FROM iq_captures").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals(0, cursor.getInt(0))
+            }
+        }
+    }
+
+    @Test
     fun completedM1SurveyReprocessesOfflineAndUserStateIsReversible() = kotlinx.coroutines.runBlocking {
         val setup = NotebookSetupRepository(database.notebookDao())
         val launch = setup.createStarterSurvey("suffix", "HackRF One", 1, 1, "offline")

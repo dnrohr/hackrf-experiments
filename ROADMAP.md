@@ -43,8 +43,8 @@ M0 Technical spikes
 | M1 | Complete (documented evidence exceptions) | Reliable receive-only radio and GPS-tagged survey foundation | USB, equipment, band, location, acquisition, performance | [Radio and survey foundation](docs/milestones/M1-radio-survey-foundation.md) |
 | M2 | Complete | Convert spectrum observations into reviewable signal fingerprints | Detection and fingerprinting | [Detection and fingerprinting](docs/milestones/M2-detection-fingerprinting.md) |
 | M3 | Complete | Uncertainty-aware geographic exploration of selected fingerprints | Mapping | [Geographic mapping](docs/milestones/M3-geographic-mapping.md) |
-| M4 | Ready | Focused IQ capture and privacy-controlled interoperable exports | Capture and export | [Focused capture and export](docs/milestones/M4-capture-export.md) |
-| M5 | Blocked by M4 | Field-tested, accessible, recoverable MVP release candidate | Cross-cutting audit | [Field hardening and release](docs/milestones/M5-field-hardening.md) |
+| M4 | Complete | Focused IQ capture and privacy-controlled interoperable exports | Capture and export | [Focused capture and export](docs/milestones/M4-capture-export.md) |
+| M5 | Ready | Field-tested, accessible, recoverable MVP release candidate | Cross-cutting audit | [Field hardening and release](docs/milestones/M5-field-hardening.md) |
 
 ## M0 — Technical spikes
 

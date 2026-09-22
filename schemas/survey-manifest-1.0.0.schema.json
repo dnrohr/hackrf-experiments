@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rf-field-notebook.local/schema/survey-manifest-1.0.0.json",
+  "title": "RF Field Notebook survey archive manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "surveyId", "generatedAtEpochMs", "appVersion", "coordinateMode", "includesIq", "includesRoutes", "includesNotes", "includesDeviceIdentifiers", "deviceSerialSuffix", "notes", "files"],
+  "properties": {
+    "schemaVersion": {"const": "1.0.0"},
+    "surveyId": {"type": "string", "minLength": 1},
+    "generatedAtEpochMs": {"type": "integer", "minimum": 0},
+    "appVersion": {"type": "string", "minLength": 1},
+    "coordinateMode": {"enum": ["full", "rounded", "omitted"]},
+    "includesIq": {"type": "boolean"},
+    "includesRoutes": {"type": "boolean"},
+    "includesNotes": {"type": "boolean"},
+    "includesDeviceIdentifiers": {"type": "boolean"},
+    "deviceSerialSuffix": {"type": ["string", "null"]},
+    "notes": {"type": ["string", "null"]},
+    "files": {"type": "array", "maxItems": 1000, "items": {
+      "type": "object", "additionalProperties": false, "required": ["path", "bytes", "sha256"],
+      "properties": {"path": {"type": "string", "pattern": "^(?!/|\\\\|[A-Za-z]:)(?!.*(?:^|[\\\\/])\\.\\.(?:[\\\\/]|$)).+$"}, "bytes": {"type": "integer", "minimum": 0, "maximum": 512000000}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+    }}
+  }
+}

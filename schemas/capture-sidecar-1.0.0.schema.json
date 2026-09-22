@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rf-field-notebook.local/schema/capture-sidecar-1.0.0.json",
+  "title": "RF Field Notebook IQ capture sidecar",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "sampleFormat", "componentOrder", "byteOrder", "centerFrequencyHz", "sampleRateHz", "requestedDurationMs", "startedAtEpochMs", "startedMonotonicNs", "expectedByteCount", "actualByteCount", "complexSampleCount", "gapCount", "overrunCount", "sha256", "radio", "equipmentProfileVersionId", "location", "note", "versions"],
+  "properties": {
+    "schemaVersion": {"const": "1.0.0"},
+    "id": {"type": "string", "minLength": 1},
+    "fingerprintId": {"type": ["string", "null"]},
+    "surveyId": {"type": ["string", "null"]},
+    "sampleFormat": {"const": "signed-int8-interleaved-iq"},
+    "componentOrder": {"const": "I,Q"},
+    "byteOrder": {"const": "not-applicable-single-byte-components"},
+    "centerFrequencyHz": {"type": "integer", "minimum": 1000000, "maximum": 6000000000},
+    "sampleRateHz": {"enum": [2000000, 4000000, 8000000]},
+    "requestedDurationMs": {"type": "integer", "minimum": 250, "maximum": 30000},
+    "startedAtEpochMs": {"type": "integer", "minimum": 0},
+    "startedMonotonicNs": {"type": "integer", "minimum": 0},
+    "expectedByteCount": {"type": "integer", "minimum": 1},
+    "actualByteCount": {"type": "integer", "minimum": 1},
+    "complexSampleCount": {"type": "integer", "minimum": 1},
+    "gapCount": {"const": 0},
+    "overrunCount": {"const": 0},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "radio": {
+      "type": "object", "additionalProperties": false,
+      "required": ["basebandFilterHz", "lnaGainDb", "vgaGainDb", "rfAmpEnabled", "antennaPowerEnabled"],
+      "properties": {
+        "basebandFilterHz": {"type": "integer", "minimum": 0},
+        "lnaGainDb": {"type": "integer", "minimum": 0, "maximum": 40},
+        "vgaGainDb": {"type": "integer", "minimum": 0, "maximum": 62},
+        "rfAmpEnabled": {"type": "boolean"},
+        "antennaPowerEnabled": {"type": "boolean"}
+      }
+    },
+    "equipmentProfileVersionId": {"type": "string", "minLength": 1},
+    "deviceSerialSuffix": {"type": ["string", "null"]},
+    "location": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "object", "additionalProperties": false, "required": ["crs", "latitude", "longitude", "horizontalAccuracyM", "ageMs"], "properties": {
+          "crs": {"const": "EPSG:4326"}, "latitude": {"type": "number", "minimum": -90, "maximum": 90},
+          "longitude": {"type": "number", "minimum": -180, "maximum": 180},
+          "horizontalAccuracyM": {"type": ["number", "null"], "minimum": 0}, "ageMs": {"type": ["integer", "null"], "minimum": 0}
+        }}
+      ]
+    },
+    "note": {"type": "string"},
+    "versions": {"type": "object", "required": ["app", "detector", "clustering", "aggregation", "profile"], "additionalProperties": false, "properties": {
+      "app": {"type": "string"}, "detector": {"type": "string"}, "clustering": {"type": "string"}, "aggregation": {"type": "string"}, "profile": {"type": "string"}
+    }}
+  }
+}

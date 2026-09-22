@@ -10,6 +10,12 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface NotebookDao {
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertIqCapture(capture: IQCaptureEntity)
+
+    @Query("SELECT * FROM iq_captures ORDER BY startedAtEpochMs DESC")
+    suspend fun iqCaptures(): List<IQCaptureEntity>
+
     @Upsert
     suspend fun insertRadioDevice(device: RadioDeviceEntity)
 

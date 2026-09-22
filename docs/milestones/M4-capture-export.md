@@ -1,6 +1,6 @@
 # M4 — Focused capture and export
 
-- Status: Ready
+- Status: Complete
 - Depends on: M3 — Geographic mapping
 - Produces: Bounded IQ captures and privacy-controlled interoperable bundles
 - Next milestone: M5 — Field hardening and release
@@ -108,24 +108,24 @@ privacy UI, and interoperability evidence.
 
 ## Acceptance criteria
 
-- [ ] All 12 owned requirements have traceability evidence.
-- [ ] Manual captures enforce duration and storage limits.
-- [ ] A successful file has exact documented sample encoding, actual counts,
+- [x] All 12 owned requirements have traceability evidence.
+- [x] Manual captures enforce duration and storage limits.
+- [x] A successful file has exact documented sample encoding, actual counts,
   sidecar, preview, and matching SHA-256.
-- [ ] Cancellation, detach, low storage, and overrun cannot produce a capture
+- [x] Cancellation, detach, low storage, and overrun cannot produce a capture
   falsely marked complete.
-- [ ] Focused mode always returns the radio to idle on exit.
-- [ ] No MVP screen parses or displays application payload contents.
-- [ ] JSON Schema validates committed examples and rejects documented invalid cases.
-- [ ] Export review can independently omit IQ, routes, coordinates, notes, and
+- [x] Focused mode always returns the radio to idle on exit.
+- [x] No MVP screen parses or displays application payload contents.
+- [x] JSON Schema validates committed examples and rejects documented invalid cases.
+- [x] Export review can independently omit IQ, routes, coordinates, notes, and
   identifiers.
-- [ ] Import blocks traversal, oversized archive, invalid hash, and unsupported
+- [x] Import blocks traversal, oversized archive, invalid hash, and unsupported
   schema fixtures without partial mutation.
-- [ ] Full and redacted bundles round-trip.
-- [ ] A 1–5 second IQ capture opens correctly in the Windows toolchain and the
+- [x] Full and redacted bundles round-trip.
+- [x] A 1–5 second IQ capture opens correctly in the Windows toolchain and the
   evidence records all interpretation parameters.
-- [ ] Earlier milestone regression suites pass.
-- [ ] `scripts/Test-Planning.ps1` passes after handoff and roadmap updates.
+- [x] Earlier milestone regression suites pass.
+- [x] `scripts/Test-Planning.ps1` passes after handoff and roadmap updates.
 
 ## Validation
 
@@ -153,11 +153,21 @@ only intentionally sanitized examples in Git.
 
 Complete this section before marking M4 complete:
 
-- Commit and branch:
-- Delivered behavior:
-- Validation summary:
-- Schema and interoperability evidence:
-- Privacy/security evidence:
-- ADRs:
-- Known limitations:
-- M5 starting point and cautions:
+- Commit and branch: `main`; M4 commit recorded in the final delivery report.
+- Delivered behavior: focused RX/waterfall, measured preflight, 0.25–30 second
+  atomic CS8 capture, sidecar/hash/preview, Room capture index, reviewed export,
+  Android share sheet, and defensive staged import.
+- Validation summary: Android lint/unit/build/connected suites, receive-only and
+  native-export checks, schema validation, planning validation, archive hostile
+  cases, physical Pixel 8a capture, and Windows Radioconda inspection.
+- Schema and interoperability evidence: `docs/evidence/M4/schema-and-interoperability.md`
+  and `docs/evidence/M4/hardware-report.md`.
+- Privacy/security evidence: `docs/evidence/M4/round-trip-and-security.md` and
+  `docs/evidence/M4/ui-review.md`.
+- ADRs: ADR 008 accepted.
+- Known limitations: capture is activity-visible and manual-only; optional
+  location is represented but the M4 focused flow does not request a new fix;
+  M5 retains physical fault-injection and accessibility hardening.
+- M5 starting point and cautions: re-run detach/low-storage/process-death capture
+  paths on hardware, verify temporary cleanup after process death, and preserve
+  the strict receive-only and no-payload boundaries.

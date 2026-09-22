@@ -45,6 +45,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import androidx.lifecycle.lifecycleScope
 import dev.rfnotebook.acquisition.CompatibilityReceiveService
 import dev.rfnotebook.acquisition.StorageGuard
 import dev.rfnotebook.acquisition.SurveyAcquisitionService
@@ -61,6 +63,9 @@ import dev.rfnotebook.storage.DiscoveryDetail
 import dev.rfnotebook.storage.SignalFingerprintEntity
 import dev.rfnotebook.storage.SurveyLaunch
 import dev.rfnotebook.storage.SurveySummary
+import dev.rfnotebook.storage.SurveyBundleImporter
+import java.io.File
+import java.util.UUID
 import dev.rfnotebook.domain.FingerprintState
 import dev.rfnotebook.maps.MapDataRepository
 import dev.rfnotebook.maps.MapDataset
@@ -68,7 +73,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class AppPage { SETUP, PREFLIGHT, ACTIVE, SUMMARY, DISCOVERIES, DISCOVERY_DETAIL, MAP }
+private enum class AppPage { SETUP, PREFLIGHT, ACTIVE, SUMMARY, DISCOVERIES, DISCOVERY_DETAIL, MAP, CAPTURE }
 
 class MainActivity : ComponentActivity() {
     private var usbPermissionState by mutableStateOf("unknown")
@@ -108,6 +113,27 @@ class MainActivity : ComponentActivity() {
             pendingCompatibilityTest = false
             launchProblem = "Location permission was denied; the survey was not started."
             page = AppPage.PREFLIGHT
+        }
+    }
+    private val importLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@registerForActivityResult
+        lifecycleScope.launch(Dispatchers.IO) {
+            runCatching {
+                val stagingRoot = File(cacheDir, "imports").apply { mkdirs() }
+                val incoming = File(stagingRoot, "incoming-${UUID.randomUUID()}.zip")
+                contentResolver.openInputStream(uri).use { input ->
+                    requireNotNull(input) { "Could not open the selected bundle" }
+                    incoming.outputStream().use(input::copyTo)
+                }
+                val destination = File(filesDir, "imports/${UUID.randomUUID()}")
+                SurveyBundleImporter.import(incoming, destination)
+                incoming.delete()
+                destination
+            }.onSuccess { imported -> withContext(Dispatchers.Main) {
+                launchProblem = "Imported validated bundle ${imported.name}; unsupported or unsafe content is never partially committed."
+            } }.onFailure { failure -> withContext(Dispatchers.Main) {
+                launchProblem = "Import rejected: ${failure.message}"
+            } }
         }
     }
 
@@ -163,6 +189,8 @@ class MainActivity : ComponentActivity() {
         var discoveryDetail by remember { mutableStateOf<DiscoveryDetail?>(null) }
         var mapDataset by remember { mutableStateOf<MapDataset?>(null) }
         var mappedFingerprintId by remember { mutableStateOf<String?>(null) }
+        var captureFingerprintId by remember { mutableStateOf<String?>(null) }
+        var captureFrequencyHz by remember { mutableStateOf(433_920_000L) }
         val acquisition by SurveyAcquisitionStatus.state.collectAsState()
         val coroutineScope = rememberCoroutineScope()
         val storage = remember(rangeStart, rangeEnd, additionalRanges, excludedRanges, binWidth) {
@@ -185,7 +213,7 @@ class MainActivity : ComponentActivity() {
         ) {
             Text("RF Field Notebook", style = MaterialTheme.typography.headlineSmall)
             Text("Receive only • observed power is relative, not calibrated")
-            if (page != AppPage.DISCOVERIES && page != AppPage.DISCOVERY_DETAIL && page != AppPage.MAP) {
+            if (page !in setOf(AppPage.DISCOVERIES, AppPage.DISCOVERY_DETAIL, AppPage.MAP, AppPage.CAPTURE)) {
                 OutlinedButton(onClick = {
                     discoveryState = DiscoveryUiState(DiscoveryPhase.PROCESSING)
                     page = AppPage.DISCOVERIES
@@ -215,6 +243,12 @@ class MainActivity : ComponentActivity() {
                         locationLauncher.launch(SURVEY_PERMISSIONS)
                     },
                     onPreflight = { page = AppPage.PREFLIGHT },
+                    onFocusedCapture = {
+                        captureFingerprintId = null
+                        captureFrequencyHz = runCatching { FrequencyText.parseHz(rangeStart) }.getOrDefault(433_920_000L)
+                        page = AppPage.CAPTURE
+                    },
+                    onImport = { importLauncher.launch(arrayOf("application/zip", "application/octet-stream")) },
                 )
                 AppPage.PREFLIGHT -> PreflightPage(serialSuffix, band, rangeStart, rangeEnd, additionalRanges, excludedRanges, binWidth, targetRevisit, thresholdSnr, minimumBandwidth, rate, lna, vga, storage.canStart, storage.explanation,
                     gpsStatus(),
@@ -337,6 +371,11 @@ class MainActivity : ComponentActivity() {
                             MapDataRepository(NotebookDatabase.open(this@MainActivity).notebookDao()).load(ids)
                         }
                     }
+                }, onCapture = {
+                    val current = discoveryDetail ?: return@DiscoveryDetailPage
+                    captureFingerprintId = current.fingerprint.id
+                    captureFrequencyHz = current.fingerprint.nominalFrequencyHz
+                    page = AppPage.CAPTURE
                 }, onSplitLast = {
                     val current = discoveryDetail ?: return@DiscoveryDetailPage
                     val moved = current.detections.lastOrNull()?.id ?: return@DiscoveryDetailPage
@@ -356,6 +395,22 @@ class MainActivity : ComponentActivity() {
                     initialFingerprintId = mappedFingerprintId,
                     onBack = { page = AppPage.DISCOVERY_DETAIL },
                 )
+                AppPage.CAPTURE -> if (serialSuffix == null) {
+                    Section("Focused capture") {
+                        Text("Attach and grant USB permission to a HackRF before focused receive.")
+                        OutlinedButton(onClick = { page = AppPage.SETUP }) { Text("Back") }
+                    }
+                } else {
+                    val controller = remember(serialSuffix, captureFingerprintId) {
+                        FocusedCaptureController(this@MainActivity, serialSuffix, captureFingerprintId)
+                    }
+                    FocusedCaptureScreen(
+                        controller = controller,
+                        initialFrequencyHz = captureFrequencyHz,
+                        onBack = { page = if (captureFingerprintId == null) AppPage.SETUP else AppPage.DISCOVERY_DETAIL },
+                        onShare = ::shareBundle,
+                    )
+                }
             }
             problem?.let { Text("Problem: $it", color = MaterialTheme.colorScheme.error) }
             launchProblem?.let { Text("Problem: $it", color = MaterialTheme.colorScheme.error) }
@@ -377,6 +432,8 @@ class MainActivity : ComponentActivity() {
         thresholdSnr: String, onThresholdSnr: (String) -> Unit,
         minimumBandwidth: String, onMinimumBandwidth: (String) -> Unit,
         recoverable: SurveyLaunch?, onRecover: (SurveyLaunch) -> Unit, onPreflight: () -> Unit,
+        onFocusedCapture: () -> Unit,
+        onImport: () -> Unit,
     ) {
         recoverable?.let { value ->
             Section("Interrupted survey") {
@@ -433,6 +490,10 @@ class MainActivity : ComponentActivity() {
             Text("Exploration aids only; these profiles do not authorize transmission.")
         }
         Button(enabled = serialSuffix != null, onClick = onPreflight, modifier = Modifier.fillMaxWidth()) { Text("Survey preflight") }
+        OutlinedButton(enabled = serialSuffix != null, onClick = onFocusedCapture, modifier = Modifier.fillMaxWidth()) {
+            Text("Manual focused RX / IQ capture")
+        }
+        OutlinedButton(onClick = onImport, modifier = Modifier.fillMaxWidth()) { Text("Import validated survey bundle") }
     }
 
     @Composable private fun PreflightPage(
@@ -559,6 +620,15 @@ class MainActivity : ComponentActivity() {
     private fun requestUsbPermission(usb: UsbManager, device: UsbDevice) {
         val pending = PendingIntent.getBroadcast(this, 0, Intent(ACTION_USB_PERMISSION).setPackage(packageName), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         usb.requestPermission(device, pending)
+    }
+
+    private fun shareBundle(file: java.io.File) {
+        val uri = FileProvider.getUriForFile(this, "$packageName.files", file)
+        startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+            type = "application/zip"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }, "Share reviewed RF Field Notebook bundle"))
     }
 
     private fun startSurveyService(value: SurveyLaunch) {

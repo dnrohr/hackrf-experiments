@@ -1,0 +1,1 @@
+{"schemaVersion":"99.0.0","id":"invalid","sampleFormat":"complex-float","centerFrequencyHz":0,"sampleRateHz":123,"requestedDurationMs":60000,"gapCount":1,"overrunCount":2,"sha256":"bad"}
