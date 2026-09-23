@@ -9,6 +9,24 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CaptureContractsTest {
+    @Test fun `capture metadata rejects unsafe paths and malformed location`() {
+        val directory = java.nio.file.Files.createTempDirectory("capture-metadata").toFile()
+        try {
+            assertTrue(runCatching {
+                AtomicIqCapture(directory, CaptureMetadata.fixture().copy(id = "../escape"), expectedBytes = 4)
+            }.isFailure)
+            assertTrue(runCatching {
+                AtomicIqCapture(
+                    directory,
+                    CaptureMetadata.fixture().copy(latitude = 91.0, longitude = 1.0),
+                    expectedBytes = 4,
+                )
+            }.isFailure)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
     @Test fun `preflight enforces duration throughput and storage reserve`() {
         assertEquals(16_000_000L, CapturePreflight.expectedBytes(1_000, 8_000_000))
         assertFalse(CapturePreflight.assess(249, 2_000_000, 8_000_000, Long.MAX_VALUE).allowed)

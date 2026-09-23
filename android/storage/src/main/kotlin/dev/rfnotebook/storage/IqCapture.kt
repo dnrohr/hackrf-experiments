@@ -85,6 +85,22 @@ class AtomicIqCapture(
     private var closed = false
 
     init {
+        require(metadata.id.matches(Regex("[A-Za-z0-9._-]{1,128}"))) { "Capture identifier is unsafe" }
+        require(metadata.note.length <= 4_096) { "Capture note is too long" }
+        require(metadata.latitude == null || metadata.latitude.isFinite() && metadata.latitude in -90.0..90.0) {
+            "Capture latitude is invalid"
+        }
+        require(metadata.longitude == null || metadata.longitude.isFinite() && metadata.longitude in -180.0..180.0) {
+            "Capture longitude is invalid"
+        }
+        require((metadata.latitude == null) == (metadata.longitude == null)) { "Capture location must contain both coordinates" }
+        require(metadata.latitude != null || metadata.horizontalAccuracyM == null && metadata.locationAgeMs == null) {
+            "Capture location quality requires coordinates"
+        }
+        require(metadata.horizontalAccuracyM == null || metadata.horizontalAccuracyM.isFinite() && metadata.horizontalAccuracyM >= 0f) {
+            "Capture location accuracy is invalid"
+        }
+        require(metadata.locationAgeMs == null || metadata.locationAgeMs >= 0L) { "Capture location age is invalid" }
         require(expectedBytes > 0 && expectedBytes % 2L == 0L) { "Expected IQ byte count must be a positive even number" }
         check(directory.mkdirs() || directory.isDirectory) { "Could not create capture directory" }
         iqPart = File(directory, "${metadata.id}.cs8.part")
@@ -136,12 +152,14 @@ class AtomicIqCapture(
         val previewFile = File(directory, "${metadata.id}-preview.pgm")
         sidecarPart.writeText(sidecarJson(sha), Charsets.UTF_8)
         preview.writePgm(previewPart)
-        atomicRename(iqPart, iq)
         try {
             atomicRename(sidecarPart, sidecar)
             atomicRename(previewPart, previewFile)
+            // IQ is the commit marker. If the process dies between renames,
+            // startup cleanup removes the sidecar/preview pair that has no IQ.
+            atomicRename(iqPart, iq)
         } catch (failure: Throwable) {
-            iq.delete(); sidecar.delete(); previewFile.delete(); sidecarPart.delete(); previewPart.delete()
+            iq.delete(); sidecar.delete(); previewFile.delete(); iqPart.delete(); sidecarPart.delete(); previewPart.delete()
             throw failure
         }
         return CaptureResult(iq, sidecar, previewFile, bytesWritten, bytesWritten / 2L, sha)

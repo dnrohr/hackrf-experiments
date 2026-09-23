@@ -14,6 +14,9 @@ jobs:
           distribution: temurin
           java-version: 17
           cache: gradle
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
       - uses: android-actions/setup-android@v3
       - name: Install SDK and NDK
         shell: pwsh
@@ -24,10 +27,18 @@ jobs:
       - name: Build, test, and lint
         shell: pwsh
         working-directory: android
-        run: .\gradlew.bat lint test assembleDebug
+        run: .\gradlew.bat lint test assembleDebug assembleRelease
       - name: Verify packaged native exports
         shell: pwsh
         run: .\scripts\Test-NativeExports.ps1
+      - name: Verify schemas and release package
+        shell: pwsh
+        run: |
+          python -m pip install jsonschema==4.25.1
+          .\scripts\Test-M4Schemas.ps1
+          .\scripts\Test-M5Dependencies.ps1
+          .\scripts\Test-M5Release.ps1
+          .\scripts\Test-M5Evidence.ps1
       - name: Validate planning
         shell: pwsh
         run: .\scripts\Test-Planning.ps1

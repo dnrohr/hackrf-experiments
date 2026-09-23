@@ -20,4 +20,5 @@ exports only the nine project-owned, receive-only JNI entry points; neither
 libusb nor libhackrf (including transmit-capable libhackrf functions) is a
 dynamic application-facing API. Distribution packaging must include the
 applicable notices and the LGPL source/relinking materials; release packaging
-is a later milestone gate.
+includes both pinned upstream archives, this notice, and the exact application
+source revision so recipients can rebuild and relink the adapter.

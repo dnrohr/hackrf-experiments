@@ -9,9 +9,28 @@ android {
         applicationId = "dev.rfnotebook"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.4.0-m4"
+        versionCode = 5
+        versionName = "1.0.0-rc1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // ADR 002 limits the MVP package to the two reviewed native ABIs.
+        ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
+    }
+    buildTypes {
+        getByName("debug") {
+            // Keep instrumentation installs isolated from the private-sideload
+            // package. connectedAndroidTest uninstalls its target at teardown,
+            // which must never erase a field notebook created by the release app.
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
+        getByName("release") {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+        }
     }
     buildFeatures { compose = true }
 }

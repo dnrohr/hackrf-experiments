@@ -1,20 +1,29 @@
 package dev.rfnotebook.app
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Modifier
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.rfnotebook.domain.FingerprintState
 import dev.rfnotebook.storage.DetectionEntity
 import dev.rfnotebook.storage.DiscoveryDetail
 import dev.rfnotebook.storage.FingerprintHintEntity
 import dev.rfnotebook.storage.SignalFingerprintEntity
+import dev.rfnotebook.storage.SurveyEntity
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -75,6 +84,43 @@ class DiscoveryUiTest {
         assertEquals("Door sensor", savedLabel)
         assertEquals(FingerprintState.INTERESTING, savedState)
         capture("m2-discovery-detail.png")
+    }
+
+    @Test fun completedSurveySummaryCanBeReopenedForExportAfterCapture() {
+        var openedSurvey = ""
+        val survey = SurveyEntity(
+            "survey-export", "Route survey", "band:v1", "equipment:v1", "COMPLETE", 1,
+            100, 200, 200, 200, 0.0, 1.0, 0, 0, 0, 0, 0,
+            "test", "detector-v1", "", null,
+        )
+        compose.setContent {
+            MaterialTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    DiscoveriesPage(
+                        state = DiscoveryUiState(DiscoveryPhase.EMPTY, reprocessableSurveys = listOf(survey)),
+                        onRefresh = {},
+                        onSelect = {},
+                        onBack = {},
+                        onOpenSurvey = { openedSurvey = it },
+                    )
+                }
+            }
+        }
+
+        compose.onNodeWithText("Open summary for Route survey").performScrollTo().performClick()
+        compose.waitForIdle()
+        assertEquals(survey.id, openedSurvey)
+    }
+
+    @Test fun reviewedExportOptionIsOneLabeledCheckboxTarget() {
+        var checked = false
+        compose.setContent {
+            MaterialTheme { ReviewedExportOption("Include linked IQ", checked) { checked = it } }
+        }
+
+        compose.onNodeWithContentDescription("Include linked IQ").assertIsOff().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Include linked IQ").assertIsOn()
     }
 
     private fun detail(index: Int): DiscoveryDetail {

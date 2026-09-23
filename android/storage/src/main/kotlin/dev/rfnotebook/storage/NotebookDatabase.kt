@@ -6,6 +6,8 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import java.io.File
+import java.nio.charset.StandardCharsets
 
 @Database(
     entities = [
@@ -39,11 +41,24 @@ abstract class NotebookDatabase : RoomDatabase() {
         @Volatile private var instance: NotebookDatabase? = null
 
         fun open(context: Context): NotebookDatabase = instance ?: synchronized(this) {
-            instance ?: Room.databaseBuilder(
-                context.applicationContext,
-                NotebookDatabase::class.java,
-                DATABASE_NAME,
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build().also { instance = it }
+            instance ?: build(context.applicationContext, DATABASE_NAME).also { instance = it }
+        }
+
+        internal fun build(context: Context, name: String): NotebookDatabase {
+            requireValidDatabaseHeader(context.getDatabasePath(name))
+            return Room.databaseBuilder(context, NotebookDatabase::class.java, name)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .build()
+        }
+
+        internal fun requireValidDatabaseHeader(file: File) {
+            if (!file.exists() || file.length() == 0L) return
+            val expected = "SQLite format 3\u0000".toByteArray(StandardCharsets.US_ASCII)
+            val actual = ByteArray(expected.size)
+            val count = file.inputStream().use { it.read(actual) }
+            check(count == expected.size && actual.contentEquals(expected)) {
+                "The RF Field Notebook database is not a valid SQLite file; it was left unchanged for recovery."
+            }
         }
 
         val MIGRATION_1_2 = object : Migration(1, 2) {

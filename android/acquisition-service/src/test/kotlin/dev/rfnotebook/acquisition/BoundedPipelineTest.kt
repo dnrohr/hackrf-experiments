@@ -7,6 +7,12 @@ import org.junit.Test
 import kotlinx.coroutines.runBlocking
 
 class BoundedPipelineTest {
+    @Test fun `route distance ignores motion inside reported GPS uncertainty`() {
+        assertEquals(0.0, SurveyAcquisitionService.RouteDistance.credibleIncrementMeters(8f, 10f, 6f), 0.0)
+        assertEquals(9.0, SurveyAcquisitionService.RouteDistance.credibleIncrementMeters(25f, 10f, 6f), 0.0)
+        assertEquals(25.0, SurveyAcquisitionService.RouteDistance.credibleIncrementMeters(25f, null, null), 0.0)
+    }
+
     @Test fun `full queue rejects and counts every dropped unit`() {
         val queue = BoundedStage<Int>(PipelineStage.NATIVE, capacity = 2)
 

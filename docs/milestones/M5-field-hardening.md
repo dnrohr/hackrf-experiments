@@ -1,6 +1,6 @@
 # M5 — Field hardening and MVP release
 
-- Status: Blocked by M4
+- Status: In progress
 - Depends on: M4 — Focused capture and export
 - Produces: Audited, field-tested MVP release candidate
 - Next milestone: Post-MVP roadmap decision

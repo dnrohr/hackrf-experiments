@@ -20,6 +20,9 @@ dependencies {
     implementation(project(":signal-processing"))
     api("androidx.room:room-runtime:2.8.4")
     implementation("androidx.room:room-ktx:2.8.4")
+    // Gson is already shipped transitively by MapLibre. Declare the reviewed
+    // version directly because bundle import uses its bounded streaming reader.
+    implementation("com.google.code.gson:gson:2.10.1")
     ksp("androidx.room:room-compiler:2.8.4")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")

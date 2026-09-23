@@ -9,3 +9,6 @@ example `001-android-native-usb-stack.md`. ADRs are immutable after acceptance;
 create a later ADR that marks an earlier decision superseded.
 
 Accepted ADRs are required reading for agents working in their affected scope.
+
+Current accepted records are `001` through `009`; ADR 009 selects private
+sideload distribution for the MVP release candidate.

@@ -32,6 +32,7 @@ fun DiscoveriesPage(
     onSelect: (SignalFingerprintEntity) -> Unit,
     onBack: () -> Unit,
     onProcessSurvey: (String) -> Unit = {},
+    onOpenSurvey: (String) -> Unit = {},
     onMerge: (Set<String>) -> Unit = {},
 ) {
     var minimumMhz by remember { mutableStateOf("") }
@@ -96,6 +97,9 @@ fun DiscoveriesPage(
                     }
                     OutlinedButton(onClick = { survey = completedSurvey.id }, modifier = Modifier.fillMaxWidth()) {
                         Text("Filter to ${completedSurvey.name}")
+                    }
+                    OutlinedButton(onClick = { onOpenSurvey(completedSurvey.id) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Open summary for ${completedSurvey.name}")
                     }
                 }
             }

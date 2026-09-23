@@ -1,6 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-feature android:name="android.hardware.usb.host" android:required="true" />
-    <application android:theme="@style/AppTheme" android:label="RF Field Notebook" android:allowBackup="false">
+    <application
+        android:theme="@style/AppTheme"
+        android:label="RF Field Notebook"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:usesCleartextTraffic="false">
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.files"

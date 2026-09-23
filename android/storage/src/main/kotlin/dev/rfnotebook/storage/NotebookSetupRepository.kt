@@ -29,9 +29,59 @@ data class SurveySummary(
     val gapCount: Long,
     val gaps: List<AcquisitionGapEntity>,
     val latestHealth: HealthSnapshotEntity?,
+    val activeDurationMs: Long,
 )
 
+object SurveyDurationCalculator {
+    fun activeMilliseconds(
+        events: List<SurveyStateEventEntity>,
+        processDeathGaps: List<AcquisitionGapEntity>,
+        nowMonotonicNs: Long,
+        currentStatus: String,
+    ): Long {
+        var activeFrom: SurveyStateEventEntity? = null
+        var activeNs = 0L
+        events.sortedBy { it.id }.forEach { event ->
+            if (event.toStatus == SurveyStatus.ACTIVE.name && event.fromStatus != SurveyStatus.ACTIVE.name) {
+                activeFrom = event
+            } else if (event.fromStatus == SurveyStatus.ACTIVE.name && event.toStatus != SurveyStatus.ACTIVE.name) {
+                activeFrom?.let { start -> activeNs += elapsedNs(start, event) }
+                activeFrom = null
+            }
+        }
+        if (currentStatus == SurveyStatus.ACTIVE.name) {
+            activeFrom?.let { activeNs += (nowMonotonicNs - it.monotonicNs).coerceAtLeast(0L) }
+        }
+        val processDeathNs = processDeathGaps.asSequence()
+            .filter { it.reason == "PROCESS_DEATH" }
+            .sumOf { gap ->
+                val endMonotonic = gap.endedMonotonicNs ?: nowMonotonicNs
+                if (endMonotonic >= gap.startedMonotonicNs) {
+                    endMonotonic - gap.startedMonotonicNs
+                } else {
+                    ((gap.endedWallTimeEpochMs ?: gap.startedWallTimeEpochMs) - gap.startedWallTimeEpochMs)
+                        .coerceAtLeast(0L) * 1_000_000L
+                }
+            }
+        return ((activeNs - processDeathNs).coerceAtLeast(0L) / 1_000_000L)
+    }
+
+    private fun elapsedNs(start: SurveyStateEventEntity, end: SurveyStateEventEntity): Long =
+        if (end.monotonicNs >= start.monotonicNs) {
+            end.monotonicNs - start.monotonicNs
+        } else {
+            (end.wallTimeEpochMs - start.wallTimeEpochMs).coerceAtLeast(0L) * 1_000_000L
+        }
+}
+
 class NotebookSetupRepository(private val dao: NotebookDao) {
+    suspend fun recoverInterruptedFinalizations(wallTimeEpochMs: Long, monotonicNs: Long): List<String> =
+        dao.interruptedSurveys()
+            .filter { it.status == SurveyStatus.FINALIZING.name }
+            .mapNotNull { survey ->
+                survey.id.takeIf { dao.completeInterruptedFinalization(survey.id, wallTimeEpochMs, monotonicNs) }
+            }
+
     suspend fun recoverableLaunch(): SurveyLaunch? {
         val resumableStatuses = setOf(
             SurveyStatus.VALIDATING.name,
@@ -83,6 +133,7 @@ class NotebookSetupRepository(private val dao: NotebookDao) {
         minimumBandwidthHz: Long = 100_000,
         excludedRanges: List<FrequencyRange> = emptyList(),
         includedRanges: List<FrequencyRange>? = null,
+        appVersion: String = "unknown",
     ): SurveyLaunch {
         require(serialSuffix.isNotBlank())
         val radioId = "radio:$serialSuffix"
@@ -209,7 +260,7 @@ class NotebookSetupRepository(private val dao: NotebookDao) {
                 malformedFrameCount = 0,
                 staleFixCount = 0,
                 unlocatedObservationCount = 0,
-                appVersion = "0.2.0-m2",
+                appVersion = appVersion,
                 detectorVersion = "detector-v1",
                 notes = "Relative observations only; continuous wideband IQ is disabled.",
                 failureExplanation = null,
@@ -231,14 +282,21 @@ class NotebookSetupRepository(private val dao: NotebookDao) {
         )
     }
 
-    suspend fun summary(surveyId: String): SurveySummary = SurveySummary(
-        requireNotNull(dao.survey(surveyId)),
-        dao.aggregateCount(surveyId),
-        dao.locationFixCount(surveyId),
-        dao.gapCount(surveyId),
-        dao.surveyGaps(surveyId),
-        dao.latestHealth(surveyId),
-    )
+    suspend fun summary(surveyId: String): SurveySummary {
+        val survey = requireNotNull(dao.survey(surveyId))
+        val gaps = dao.surveyGaps(surveyId)
+        return SurveySummary(
+            survey,
+            dao.aggregateCount(surveyId),
+            dao.locationFixCount(surveyId),
+            gaps.size.toLong(),
+            gaps,
+            dao.latestHealth(surveyId),
+            SurveyDurationCalculator.activeMilliseconds(
+                dao.surveyStateEvents(surveyId), gaps, survey.lastMonotonicNs, survey.status,
+            ),
+        )
+    }
 
     private fun effectiveRanges(
         included: List<BandRangeEntity>,

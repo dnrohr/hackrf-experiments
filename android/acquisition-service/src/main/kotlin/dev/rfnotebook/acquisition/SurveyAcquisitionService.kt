@@ -53,6 +53,7 @@ import dev.rfnotebook.storage.HealthSnapshotEntity
 import dev.rfnotebook.storage.LocationFixEntity
 import dev.rfnotebook.storage.NotebookDatabase
 import dev.rfnotebook.storage.SpectrumAggregateEntity
+import dev.rfnotebook.storage.SurveyDurationCalculator
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
@@ -88,6 +89,7 @@ data class SurveyAcquisitionState(
     val thermalStatus: Int? = null,
     val currentRange: String = "—",
     val locationFixAgeMs: Long? = null,
+    val activeDurationMs: Long = 0,
 )
 
 object SurveyAcquisitionStatus {
@@ -234,6 +236,7 @@ class SurveyAcquisitionService : Service() {
                     startedAtEpochMs = activeSurvey.startedAtEpochMs,
                     distanceMeters = activeSurvey.distanceMeters,
                     configuredRanges = scanRanges.joinToString { "${it.startFrequencyHz / 1_000_000.0}–${it.endFrequencyHz / 1_000_000.0} MHz" },
+                    activeDurationMs = activeDurationMs(state.status, SystemClock.elapsedRealtimeNanos()),
                 ),
             )
             updateNotification("Survey active • RX only")
@@ -245,7 +248,12 @@ class SurveyAcquisitionService : Service() {
     private suspend fun pauseSurvey() {
         if (!::coordinator.isInitialized) return
         val state = coordinator.command(surveyId, SurveyCommand.Pause)
-        SurveyAcquisitionStatus.update(SurveyAcquisitionStatus.state.value.copy(status = state.status))
+        lastRouteLocation = null
+        val nowNs = SystemClock.elapsedRealtimeNanos()
+        SurveyAcquisitionStatus.update(SurveyAcquisitionStatus.state.value.copy(
+            status = state.status,
+            activeDurationMs = activeDurationMs(state.status, nowNs),
+        ))
         updateNotification("Survey paused")
     }
 
@@ -257,13 +265,20 @@ class SurveyAcquisitionService : Service() {
                 surveyId, System.currentTimeMillis(), SystemClock.elapsedRealtimeNanos(),
             )
             operationalWarning.set(null)
-            SurveyAcquisitionStatus.update(SurveyAcquisitionStatus.state.value.copy(status = state.status, warning = null))
+            val nowNs = SystemClock.elapsedRealtimeNanos()
+            SurveyAcquisitionStatus.update(SurveyAcquisitionStatus.state.value.copy(
+                status = state.status, warning = null,
+                activeDurationMs = activeDurationMs(state.status, nowNs),
+            ))
             updateNotification("Survey active • RX only")
         } catch (failure: Throwable) {
             val explanation = if (failure is RadioException) "${failure.code}: ${failure.message}" else failure.message ?: failure.javaClass.simpleName
             operationalWarning.set("Resume failed: $explanation")
             SurveyAcquisitionStatus.update(
-                SurveyAcquisitionStatus.state.value.copy(status = SurveyStatus.PAUSED, warning = operationalWarning.get()),
+                SurveyAcquisitionStatus.state.value.copy(
+                    status = SurveyStatus.PAUSED, warning = operationalWarning.get(),
+                    activeDurationMs = activeDurationMs(SurveyStatus.PAUSED, SystemClock.elapsedRealtimeNanos()),
+                ),
             )
             updateNotification("Resume failed • survey remains paused")
         }
@@ -273,17 +288,26 @@ class SurveyAcquisitionService : Service() {
         if (!stopping.compareAndSet(false, true)) return
         if (::coordinator.isInitialized) {
             val current = database.notebookDao().survey(surveyId)
-            if (current?.status == SurveyStatus.ACTIVE.name || current?.status == SurveyStatus.PAUSED.name) {
-                coordinator.command(surveyId, SurveyCommand.Stop)
-            }
+            // Keep durable state ACTIVE/PAUSED until RX is stopped and every
+            // in-memory stage has drained. A process death before that point is
+            // recoverable with an explicit PROCESS_DEATH gap instead of falsely
+            // completing a survey that may have had unaccounted queued units.
+            if (current?.status == SurveyStatus.ACTIVE.name) radioController.stop()
             stopWorkers()
             persistFinalHealth()
             RoomSurveyStateStore(database.notebookDao()).closeOpenGaps(
                 surveyId, System.currentTimeMillis(), SystemClock.elapsedRealtimeNanos(),
             )
+            val drained = database.notebookDao().survey(surveyId)
+            if (drained?.status == SurveyStatus.ACTIVE.name || drained?.status == SurveyStatus.PAUSED.name) {
+                coordinator.command(surveyId, SurveyCommand.Stop)
+            }
             coordinator.command(surveyId, SurveyCommand.Finalize)
             radioController.close()
-            SurveyAcquisitionStatus.update(SurveyAcquisitionStatus.state.value.copy(status = SurveyStatus.COMPLETE))
+            SurveyAcquisitionStatus.update(SurveyAcquisitionStatus.state.value.copy(
+                status = SurveyStatus.COMPLETE,
+                activeDurationMs = activeDurationMs(SurveyStatus.COMPLETE, SystemClock.elapsedRealtimeNanos()),
+            ))
         }
         stopSelf()
     }
@@ -293,6 +317,7 @@ class SurveyAcquisitionService : Service() {
         radioController.closeNative()
         val current = database.notebookDao().survey(surveyId)
         if (current?.status == SurveyStatus.ACTIVE.name) coordinator.command(surveyId, SurveyCommand.Pause)
+        lastRouteLocation = null
         radioController.markRecoverable("USB detached")
         RoomSurveyStateStore(database.notebookDao()).recordOpenGap(
             surveyId, GapReason.USB_DETACH, System.currentTimeMillis(), SystemClock.elapsedRealtimeNanos(),
@@ -300,7 +325,10 @@ class SurveyAcquisitionService : Service() {
         counters.increment(HealthCounter.SERVICE_GAP)
         operationalWarning.set("USB detached; gap recorded. Reattach and Resume.")
         SurveyAcquisitionStatus.update(
-            SurveyAcquisitionStatus.state.value.copy(status = SurveyStatus.PAUSED, warning = operationalWarning.get()),
+            SurveyAcquisitionStatus.state.value.copy(
+                status = SurveyStatus.PAUSED, warning = operationalWarning.get(),
+                activeDurationMs = activeDurationMs(SurveyStatus.PAUSED, SystemClock.elapsedRealtimeNanos()),
+            ),
         )
         updateNotification("USB detached • survey paused")
     }
@@ -432,6 +460,7 @@ class SurveyAcquisitionService : Service() {
                 staleFixCount = health.staleFixCount,
                 unlocatedObservationCount = unlocatedObservations.get(),
             )
+            database.notebookDao().updateActiveHeartbeat(surveyId, System.currentTimeMillis(), nowNs)
             SurveyAcquisitionStatus.update(
                 SurveyAcquisitionStatus.state.value.copy(
                     usbBytesPerSecond = bytesPerSecond,
@@ -447,6 +476,10 @@ class SurveyAcquisitionService : Service() {
                         "${low / 1_000_000.0}–${high / 1_000_000.0} MHz"
                     } ?: "—",
                     locationFixAgeMs = fixAgeMs,
+                    activeDurationMs = activeDurationMs(
+                        database.notebookDao().survey(surveyId)?.status?.let(SurveyStatus::valueOf) ?: SurveyStatus.PAUSED,
+                        nowNs,
+                    ),
                 ),
             )
             updateNotification("RX ${bytesPerSecond / 1_000_000} MB/s • ${health.droppedNativeUnits + health.droppedProcessingUnits + health.droppedPersistenceUnits} dropped")
@@ -458,8 +491,14 @@ class SurveyAcquisitionService : Service() {
     }
 
     private fun onLocation(location: Location) {
+        if (SurveyAcquisitionStatus.state.value.status != SurveyStatus.ACTIVE) return
         lastRouteLocation?.let { previous ->
-            routeDistanceMillimeters.addAndGet((previous.distanceTo(location) * 1_000.0).toLong().coerceAtLeast(0))
+            val credibleMeters = RouteDistance.credibleIncrementMeters(
+                previous.distanceTo(location),
+                previous.accuracy.takeIf { previous.hasAccuracy() },
+                location.accuracy.takeIf { location.hasAccuracy() },
+            )
+            routeDistanceMillimeters.addAndGet((credibleMeters * 1_000.0).toLong())
         }
         lastRouteLocation = Location(location)
         val fix = LocationFix(
@@ -485,6 +524,7 @@ class SurveyAcquisitionService : Service() {
         if (!::coordinator.isInitialized || !::surveyId.isInitialized) return
         radioController.closeNative()
         coordinator.command(surveyId, SurveyCommand.Pause)
+        lastRouteLocation = null
         radioController.markRecoverable("Radio transfer stalled")
         RoomSurveyStateStore(database.notebookDao()).recordOpenGap(
             surveyId, GapReason.RADIO_STALL, System.currentTimeMillis(), SystemClock.elapsedRealtimeNanos(),
@@ -492,7 +532,10 @@ class SurveyAcquisitionService : Service() {
         counters.increment(HealthCounter.SERVICE_GAP)
         operationalWarning.set("Radio stalled; gap recorded. Tap Resume to reopen.")
         SurveyAcquisitionStatus.update(
-            SurveyAcquisitionStatus.state.value.copy(status = SurveyStatus.PAUSED, warning = operationalWarning.get()),
+            SurveyAcquisitionStatus.state.value.copy(
+                status = SurveyStatus.PAUSED, warning = operationalWarning.get(),
+                activeDurationMs = activeDurationMs(SurveyStatus.PAUSED, SystemClock.elapsedRealtimeNanos()),
+            ),
         )
         updateNotification("Radio stalled • survey paused")
     }
@@ -516,6 +559,27 @@ class SurveyAcquisitionService : Service() {
         // orderly stop drains workers and finalizes the survey.
         scope.launch { stopSurvey() }
     }
+
+    internal object RouteDistance {
+        fun credibleIncrementMeters(
+            separationMeters: Float,
+            previousAccuracyM: Float?,
+            currentAccuracyM: Float?,
+        ): Double {
+            val uncertainty = listOfNotNull(previousAccuracyM, currentAccuracyM)
+                .filter { it.isFinite() && it >= 0f }
+                .sum()
+            return (separationMeters.toDouble() - uncertainty).coerceAtLeast(0.0)
+        }
+    }
+
+    private suspend fun activeDurationMs(status: SurveyStatus, nowMonotonicNs: Long): Long =
+        SurveyDurationCalculator.activeMilliseconds(
+            database.notebookDao().surveyStateEvents(surveyId),
+            database.notebookDao().surveyGaps(surveyId),
+            nowMonotonicNs,
+            status.name,
+        )
 
     private fun enqueueSummaries(summaries: List<SpectrumSummary>) {
         if (summaries.isEmpty()) return

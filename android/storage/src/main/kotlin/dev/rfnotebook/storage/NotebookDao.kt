@@ -16,6 +16,18 @@ interface NotebookDao {
     @Query("SELECT * FROM iq_captures ORDER BY startedAtEpochMs DESC")
     suspend fun iqCaptures(): List<IQCaptureEntity>
 
+    @Query("SELECT * FROM iq_captures WHERE status = 'CAPTURING' ORDER BY startedAtEpochMs")
+    suspend fun interruptedIqCaptures(): List<IQCaptureEntity>
+
+    @Query("UPDATE iq_captures SET actualByteCount = :actualByteCount, complexSampleCount = :complexSampleCount, sha256 = :sha256, status = 'COMPLETE' WHERE id = :id AND status = 'CAPTURING'")
+    suspend fun completeIqCapture(id: String, actualByteCount: Long, complexSampleCount: Long, sha256: String): Int
+
+    @Query("UPDATE iq_captures SET status = 'FAILED' WHERE id = :id AND status = 'CAPTURING'")
+    suspend fun failIqCapture(id: String): Int
+
+    @Query("SELECT * FROM iq_captures WHERE surveyId = :surveyId AND status = 'COMPLETE' ORDER BY startedAtEpochMs")
+    suspend fun surveyIqCaptures(surveyId: String): List<IQCaptureEntity>
+
     @Upsert
     suspend fun insertRadioDevice(device: RadioDeviceEntity)
 
@@ -59,6 +71,9 @@ interface NotebookDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertStateEvent(event: SurveyStateEventEntity)
 
+    @Query("SELECT * FROM survey_state_events WHERE surveyId = :surveyId ORDER BY id")
+    suspend fun surveyStateEvents(surveyId: String): List<SurveyStateEventEntity>
+
     @Transaction
     suspend fun persistStateTransition(expectedRevision: Long, survey: SurveyEntity, event: SurveyStateEventEntity) {
         val changed = compareAndSetSurveyState(
@@ -74,6 +89,35 @@ interface NotebookDao {
         )
         check(changed == 1) { "Survey ${survey.id} changed concurrently" }
         insertStateEvent(event)
+    }
+
+    @Transaction
+    suspend fun completeInterruptedFinalization(surveyId: String, wallTimeEpochMs: Long, monotonicNs: Long): Boolean {
+        val current = survey(surveyId) ?: return false
+        if (current.status != "FINALIZING") return false
+        val completedWallTime = maxOf(current.lastWallTimeEpochMs, wallTimeEpochMs)
+        val completedMonotonic = maxOf(current.lastMonotonicNs, monotonicNs)
+        closeOpenGaps(surveyId, completedWallTime, completedMonotonic)
+        persistStateTransition(
+            current.revision,
+            current.copy(
+                status = "COMPLETE",
+                revision = current.revision + 1,
+                endedAtEpochMs = completedWallTime,
+                lastWallTimeEpochMs = completedWallTime,
+                lastMonotonicNs = completedMonotonic,
+                failureExplanation = null,
+            ),
+            SurveyStateEventEntity(
+                surveyId = surveyId,
+                fromStatus = "FINALIZING",
+                toStatus = "COMPLETE",
+                wallTimeEpochMs = completedWallTime,
+                monotonicNs = completedMonotonic,
+                explanation = "Recovered interrupted finalization after process death",
+            ),
+        )
+        return true
     }
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
@@ -138,6 +182,9 @@ interface NotebookDao {
         staleFixCount: Long,
         unlocatedObservationCount: Long,
     )
+
+    @Query("UPDATE surveys SET lastWallTimeEpochMs = :wallTimeEpochMs, lastMonotonicNs = :monotonicNs WHERE id = :surveyId AND status = 'ACTIVE' AND lastMonotonicNs <= :monotonicNs")
+    suspend fun updateActiveHeartbeat(surveyId: String, wallTimeEpochMs: Long, monotonicNs: Long): Int
 
     @Query("SELECT * FROM equipment_profiles WHERE retiredAtEpochMs IS NULL ORDER BY name, version DESC")
     suspend fun activeEquipmentProfiles(): List<EquipmentProfileEntity>

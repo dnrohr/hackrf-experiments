@@ -25,9 +25,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -40,14 +42,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
 import dev.rfnotebook.acquisition.CompatibilityReceiveService
+import dev.rfnotebook.acquisition.CompatibilityReceiveState
+import dev.rfnotebook.acquisition.CompatibilityReceiveStatus
 import dev.rfnotebook.acquisition.StorageGuard
 import dev.rfnotebook.acquisition.SurveyAcquisitionService
 import dev.rfnotebook.acquisition.SurveyAcquisitionState
@@ -64,6 +73,11 @@ import dev.rfnotebook.storage.SignalFingerprintEntity
 import dev.rfnotebook.storage.SurveyLaunch
 import dev.rfnotebook.storage.SurveySummary
 import dev.rfnotebook.storage.SurveyBundleImporter
+import dev.rfnotebook.storage.SurveyBundleContentFactory
+import dev.rfnotebook.storage.SurveyBundleExporter
+import dev.rfnotebook.storage.ExportPolicy
+import dev.rfnotebook.storage.CoordinateMode
+import dev.rfnotebook.storage.InterruptedArtifactRecovery
 import java.io.File
 import java.util.UUID
 import dev.rfnotebook.domain.FingerprintState
@@ -82,6 +96,7 @@ class MainActivity : ComponentActivity() {
     private var pendingCompatibilityTest = false
     private var page by mutableStateOf(AppPage.SETUP)
     private var launchProblem by mutableStateOf<String?>(null)
+    private var pendingExportFile: File? = null
 
     private val usbPermissionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -121,14 +136,21 @@ class MainActivity : ComponentActivity() {
             runCatching {
                 val stagingRoot = File(cacheDir, "imports").apply { mkdirs() }
                 val incoming = File(stagingRoot, "incoming-${UUID.randomUUID()}.zip")
-                contentResolver.openInputStream(uri).use { input ->
-                    requireNotNull(input) { "Could not open the selected bundle" }
-                    incoming.outputStream().use(input::copyTo)
+                try {
+                    contentResolver.openInputStream(uri).use { input ->
+                        requireNotNull(input) { "Could not open the selected bundle" }
+                        SurveyBundleImporter.stageIncoming(input, incoming, availableBytes = {
+                            StatFs(cacheDir.absolutePath).availableBytes
+                        })
+                    }
+                    val destination = File(filesDir, "imports/${UUID.randomUUID()}")
+                    SurveyBundleImporter.import(incoming, destination, availableBytes = {
+                        StatFs(filesDir.absolutePath).availableBytes
+                    })
+                    destination
+                } finally {
+                    incoming.delete()
                 }
-                val destination = File(filesDir, "imports/${UUID.randomUUID()}")
-                SurveyBundleImporter.import(incoming, destination)
-                incoming.delete()
-                destination
             }.onSuccess { imported -> withContext(Dispatchers.Main) {
                 launchProblem = "Imported validated bundle ${imported.name}; unsupported or unsafe content is never partially committed."
             } }.onFailure { failure -> withContext(Dispatchers.Main) {
@@ -136,9 +158,35 @@ class MainActivity : ComponentActivity() {
             } }
         }
     }
+    private val saveExportLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        val source = pendingExportFile
+        pendingExportFile = null
+        if (uri == null || source == null) return@registerForActivityResult
+        lifecycleScope.launch(Dispatchers.IO) {
+            runCatching {
+                contentResolver.openOutputStream(uri, "w").use { output ->
+                    requireNotNull(output) { "Could not open the selected export destination" }
+                    source.inputStream().buffered().use { it.copyTo(output) }
+                }
+            }.onSuccess { withContext(Dispatchers.Main) {
+                launchProblem = "Saved reviewed bundle ${source.name} to the selected Android document destination."
+            } }.onFailure { failure -> withContext(Dispatchers.Main) {
+                launchProblem = "Saving export failed safely: ${failure.message}"
+            } }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        page = savedInstanceState?.getString(STATE_PAGE)?.let { saved ->
+            AppPage.entries.firstOrNull { it.name == saved }
+        } ?: AppPage.SETUP
+        InterruptedArtifactRecovery.clean(
+            File(filesDir, "captures"),
+            File(cacheDir, "exports"),
+            File(cacheDir, "imports"),
+            File(filesDir, "imports"),
+        )
         ContextCompat.registerReceiver(this, usbPermissionReceiver, IntentFilter(ACTION_USB_PERMISSION), ContextCompat.RECEIVER_NOT_EXPORTED)
         val usbTopologyFilter = IntentFilter().apply {
             addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
@@ -146,6 +194,11 @@ class MainActivity : ComponentActivity() {
         }
         ContextCompat.registerReceiver(this, usbTopologyReceiver, usbTopologyFilter, ContextCompat.RECEIVER_EXPORTED)
         setContent { MaterialTheme { Surface(Modifier.fillMaxSize()) { NotebookScreen() } } }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString(STATE_PAGE, page.name)
+        super.onSaveInstanceState(outState)
     }
 
     override fun onDestroy() {
@@ -165,33 +218,39 @@ class MainActivity : ComponentActivity() {
             else -> usbPermissionState
         }
         val serialSuffix = if (permitted) runCatching { hackrf.serialNumber?.takeLast(8) }.getOrNull() else null
-        var band by remember { mutableStateOf("902–928 MHz") }
-        var rate by remember { mutableIntStateOf(4_000_000) }
-        var lna by remember { mutableIntStateOf(16) }
-        var vga by remember { mutableIntStateOf(16) }
-        var antennaName by remember { mutableStateOf("Uncalibrated antenna") }
-        var adapterNotes by remember { mutableStateOf("") }
-        var equipmentNotes by remember { mutableStateOf("Relative observations only; this profile is not calibrated.") }
-        var photoReference by remember { mutableStateOf("") }
-        var rangeStart by remember { mutableStateOf("902 MHz") }
-        var rangeEnd by remember { mutableStateOf("928 MHz") }
-        var additionalRanges by remember { mutableStateOf("") }
-        var excludedRanges by remember { mutableStateOf("") }
-        var binWidth by remember { mutableIntStateOf(100_000) }
-        var targetRevisit by remember { mutableStateOf("1000") }
-        var thresholdSnr by remember { mutableStateOf("8") }
-        var minimumBandwidth by remember { mutableStateOf("100 kHz") }
+        var band by rememberSaveable { mutableStateOf("902–928 MHz") }
+        var rate by rememberSaveable { mutableIntStateOf(4_000_000) }
+        var lna by rememberSaveable { mutableIntStateOf(16) }
+        var vga by rememberSaveable { mutableIntStateOf(16) }
+        var antennaName by rememberSaveable { mutableStateOf("Uncalibrated antenna") }
+        var adapterNotes by rememberSaveable { mutableStateOf("") }
+        var equipmentNotes by rememberSaveable { mutableStateOf("Relative observations only; this profile is not calibrated.") }
+        var photoReference by rememberSaveable { mutableStateOf("") }
+        var rangeStart by rememberSaveable { mutableStateOf("902 MHz") }
+        var rangeEnd by rememberSaveable { mutableStateOf("928 MHz") }
+        var additionalRanges by rememberSaveable { mutableStateOf("") }
+        var excludedRanges by rememberSaveable { mutableStateOf("") }
+        var binWidth by rememberSaveable { mutableIntStateOf(100_000) }
+        var targetRevisit by rememberSaveable { mutableStateOf("1000") }
+        var thresholdSnr by rememberSaveable { mutableStateOf("8") }
+        var minimumBandwidth by rememberSaveable { mutableStateOf("100 kHz") }
         var launch by remember { mutableStateOf<SurveyLaunch?>(null) }
+        var summarySurveyId by rememberSaveable { mutableStateOf<String?>(null) }
         var recoverable by remember { mutableStateOf<SurveyLaunch?>(null) }
         var summary by remember { mutableStateOf<SurveySummary?>(null) }
         var problem by remember { mutableStateOf<String?>(null) }
+        var exportMessage by remember { mutableStateOf<String?>(null) }
         var discoveryState by remember { mutableStateOf(DiscoveryUiState(DiscoveryPhase.EMPTY)) }
         var discoveryDetail by remember { mutableStateOf<DiscoveryDetail?>(null) }
+        var selectedFingerprintId by rememberSaveable { mutableStateOf<String?>(null) }
         var mapDataset by remember { mutableStateOf<MapDataset?>(null) }
-        var mappedFingerprintId by remember { mutableStateOf<String?>(null) }
-        var captureFingerprintId by remember { mutableStateOf<String?>(null) }
-        var captureFrequencyHz by remember { mutableStateOf(433_920_000L) }
+        var mappedFingerprintId by rememberSaveable { mutableStateOf<String?>(null) }
+        var captureFingerprintId by rememberSaveable { mutableStateOf<String?>(null) }
+        var captureSurveyId by rememberSaveable { mutableStateOf<String?>(null) }
+        var captureEquipmentProfileVersionId by rememberSaveable { mutableStateOf<String?>(null) }
+        var captureFrequencyHz by rememberSaveable { mutableStateOf(433_920_000L) }
         val acquisition by SurveyAcquisitionStatus.state.collectAsState()
+        val compatibility by CompatibilityReceiveStatus.state.collectAsState()
         val coroutineScope = rememberCoroutineScope()
         val storage = remember(rangeStart, rangeEnd, additionalRanges, excludedRanges, binWidth) {
             val estimate = runCatching { estimateSurveyBytes(rangeStart, rangeEnd, additionalRanges, excludedRanges, binWidth) }
@@ -199,8 +258,65 @@ class MainActivity : ComponentActivity() {
             StorageGuard.assess(StatFs(filesDir.absolutePath).availableBytes, estimate)
         }
         LaunchedEffect(Unit) {
-            recoverable = withContext(Dispatchers.IO) {
-                NotebookSetupRepository(NotebookDatabase.open(this@MainActivity).notebookDao()).recoverableLaunch()
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val repository = NotebookSetupRepository(NotebookDatabase.open(this@MainActivity).notebookDao())
+                    val captureRecovery = InterruptedArtifactRecovery.recoverCaptures(
+                        NotebookDatabase.open(this@MainActivity).notebookDao(),
+                        File(filesDir, "captures"),
+                    )
+                    val finalized = repository.recoverInterruptedFinalizations(
+                        System.currentTimeMillis(),
+                        SystemClock.elapsedRealtimeNanos(),
+                    )
+                    Triple(captureRecovery, finalized, repository.recoverableLaunch())
+                }
+            }.onSuccess { (captureRecovery, finalized, resumable) ->
+                recoverable = resumable
+                if (captureRecovery.completedCaptureIds.isNotEmpty() || captureRecovery.failedCaptureIds.isNotEmpty()) {
+                    launchProblem = "Recovered ${captureRecovery.completedCaptureIds.size} finalized capture(s); " +
+                        "${captureRecovery.failedCaptureIds.size} interrupted capture(s) were marked failed without partial files."
+                }
+                finalized.firstOrNull()?.let { surveyId ->
+                    summarySurveyId = surveyId
+                    launchProblem = "Recovered an interrupted survey finalization; persisted results are complete."
+                    page = AppPage.SUMMARY
+                }
+            }.onFailure { failure ->
+                launchProblem = "Interrupted-survey recovery failed safely; stored data was left unchanged: ${failure.message}"
+            }
+        }
+        LaunchedEffect(page, selectedFingerprintId, mappedFingerprintId) {
+            when (page) {
+                AppPage.DISCOVERIES -> if (discoveryState.phase == DiscoveryPhase.EMPTY) {
+                    loadDiscoveries { discoveryState = it }
+                }
+                AppPage.DISCOVERY_DETAIL -> selectedFingerprintId?.let { id ->
+                    if (discoveryDetail?.fingerprint?.id != id) {
+                        runCatching { withContext(Dispatchers.IO) {
+                            DiscoveryRepository(NotebookDatabase.open(this@MainActivity).notebookDao()).detail(id)
+                        } }.onSuccess { discoveryDetail = it }.onFailure {
+                            problem = "Could not restore discovery detail: ${it.message}"
+                            page = AppPage.DISCOVERIES
+                        }
+                    }
+                }
+                AppPage.MAP -> mappedFingerprintId?.let { id ->
+                    if (mapDataset == null) {
+                        runCatching { withContext(Dispatchers.IO) {
+                            val database = NotebookDatabase.open(this@MainActivity)
+                            val comparisonIds = DiscoveryRepository(database.notebookDao()).discoveries()
+                                .map { it.id }
+                            MapDataRepository(database.notebookDao()).load(
+                                (listOf(id) + comparisonIds).distinct().take(8).toSet(),
+                            )
+                        } }.onSuccess { mapDataset = it }.onFailure {
+                            problem = "Could not restore map: ${it.message}"
+                            page = AppPage.DISCOVERIES
+                        }
+                    }
+                }
+                else -> Unit
             }
         }
         LaunchedEffect(acquisition.status) {
@@ -238,6 +354,7 @@ class MainActivity : ComponentActivity() {
                     thresholdSnr, { thresholdSnr = it }, minimumBandwidth, { minimumBandwidth = it }, recoverable,
                     onRecover = { value ->
                         launch = value
+                        summarySurveyId = value.surveyId
                         pendingLaunch = value
                         launchProblem = null
                         locationLauncher.launch(SURVEY_PERMISSIONS)
@@ -245,10 +362,19 @@ class MainActivity : ComponentActivity() {
                     onPreflight = { page = AppPage.PREFLIGHT },
                     onFocusedCapture = {
                         captureFingerprintId = null
+                        captureSurveyId = null
+                        captureEquipmentProfileVersionId = null
                         captureFrequencyHz = runCatching { FrequencyText.parseHz(rangeStart) }.getOrDefault(433_920_000L)
                         page = AppPage.CAPTURE
                     },
                     onImport = { importLauncher.launch(arrayOf("application/zip", "application/octet-stream")) },
+                    compatibility = compatibility,
+                    onStopCompatibility = {
+                        this@MainActivity.startService(
+                            Intent(this@MainActivity, CompatibilityReceiveService::class.java)
+                                .setAction(CompatibilityReceiveService.ACTION_STOP),
+                        )
+                    },
                 )
                 AppPage.PREFLIGHT -> PreflightPage(serialSuffix, band, rangeStart, rangeEnd, additionalRanges, excludedRanges, binWidth, targetRevisit, thresholdSnr, minimumBandwidth, rate, lna, vga, storage.canStart, storage.explanation,
                     gpsStatus(),
@@ -272,10 +398,12 @@ class MainActivity : ComponentActivity() {
                                         minimumBandwidthHz = FrequencyText.parseHz(minimumBandwidth),
                                         includedRanges = configuredRanges(rangeStart, rangeEnd, additionalRanges),
                                         excludedRanges = FrequencyText.parseRanges(excludedRanges),
+                                        appVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "unknown",
                                     )
                                 }
                             }.onSuccess {
                                 launch = it
+                                summarySurveyId = it.surveyId
                                 pendingLaunch = it
                                 launchProblem = null
                                 locationLauncher.launch(SURVEY_PERMISSIONS)
@@ -289,13 +417,38 @@ class MainActivity : ComponentActivity() {
                     onStop = { serviceAction(SurveyAcquisitionService.ACTION_STOP) },
                 )
                 AppPage.SUMMARY -> {
-                    LaunchedEffect(launch?.surveyId, acquisition.status) {
-                        launch?.surveyId?.let { id -> summary = withContext(Dispatchers.IO) {
+                    LaunchedEffect(summarySurveyId, acquisition.status) {
+                        summarySurveyId?.let { id -> summary = withContext(Dispatchers.IO) {
                             NotebookSetupRepository(NotebookDatabase.open(this@MainActivity).notebookDao()).summary(id)
                         } }
                     }
-                    SummaryPage(summary, onNew = { page = AppPage.SETUP }, onProcess = {
-                        val surveyId = launch?.surveyId ?: return@SummaryPage
+                    val createBundle: suspend (ExportPolicy) -> File = { policy ->
+                        val surveyId = requireNotNull(summarySurveyId) { "No completed survey is selected" }
+                        withContext(Dispatchers.IO) {
+                            val database = NotebookDatabase.open(this@MainActivity)
+                            val appVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "unknown"
+                            val content = SurveyBundleContentFactory(database.notebookDao()).create(surveyId, appVersion)
+                            val directory = File(cacheDir, "exports").apply { mkdirs() }
+                            SurveyBundleExporter.create(File(directory, "rf-field-notebook-survey-$surveyId.zip"), content, policy)
+                        }
+                    }
+                    SummaryPage(summary, exportMessage, onNew = { page = AppPage.SETUP }, onShareExport = { policy ->
+                        coroutineScope.launch {
+                            runCatching { createBundle(policy) }.onSuccess { file ->
+                                exportMessage = "Validated bundle ready: ${file.name}. Review the Android destination before sharing."
+                                shareBundle(file)
+                            }.onFailure { exportMessage = "Export failed safely: ${it.message}" }
+                        }
+                    }, onSaveExport = { policy ->
+                        coroutineScope.launch {
+                            runCatching { createBundle(policy) }.onSuccess { file ->
+                                exportMessage = "Validated bundle ready: ${file.name}. Choose a local document destination."
+                                pendingExportFile = file
+                                saveExportLauncher.launch(file.name)
+                            }.onFailure { exportMessage = "Export failed safely: ${it.message}" }
+                        }
+                    }, onProcess = {
+                        val surveyId = summarySurveyId ?: return@SummaryPage
                         discoveryState = DiscoveryUiState(DiscoveryPhase.PROCESSING)
                         page = AppPage.DISCOVERIES
                         coroutineScope.launch {
@@ -310,6 +463,7 @@ class MainActivity : ComponentActivity() {
                     discoveryState,
                     onRefresh = { coroutineScope.launch { loadDiscoveries { discoveryState = it } } },
                     onSelect = { fingerprint: SignalFingerprintEntity ->
+                        selectedFingerprintId = fingerprint.id
                         discoveryDetail = null
                         page = AppPage.DISCOVERY_DETAIL
                         coroutineScope.launch { discoveryDetail = withContext(Dispatchers.IO) {
@@ -325,6 +479,12 @@ class MainActivity : ComponentActivity() {
                             } }.onFailure { discoveryState = discoveryState.copy(phase = DiscoveryPhase.FAILED, problem = it.message) }
                             if (discoveryState.phase != DiscoveryPhase.FAILED) loadDiscoveries { discoveryState = it }
                         }
+                    },
+                    onOpenSurvey = { surveyId ->
+                        summarySurveyId = surveyId
+                        summary = null
+                        exportMessage = null
+                        page = AppPage.SUMMARY
                     },
                     onMerge = { fingerprintIds ->
                         discoveryState = discoveryState.copy(phase = DiscoveryPhase.PROCESSING, problem = null)
@@ -374,6 +534,10 @@ class MainActivity : ComponentActivity() {
                 }, onCapture = {
                     val current = discoveryDetail ?: return@DiscoveryDetailPage
                     captureFingerprintId = current.fingerprint.id
+                    captureEquipmentProfileVersionId = current.fingerprint.equipmentProfileVersionId
+                    captureSurveyId = summarySurveyId?.takeIf { preferred ->
+                        current.detections.any { it.surveyId == preferred }
+                    } ?: current.detections.maxByOrNull { it.endedAtEpochMs }?.surveyId
                     captureFrequencyHz = current.fingerprint.nominalFrequencyHz
                     page = AppPage.CAPTURE
                 }, onSplitLast = {
@@ -401,8 +565,11 @@ class MainActivity : ComponentActivity() {
                         OutlinedButton(onClick = { page = AppPage.SETUP }) { Text("Back") }
                     }
                 } else {
-                    val controller = remember(serialSuffix, captureFingerprintId) {
-                        FocusedCaptureController(this@MainActivity, serialSuffix, captureFingerprintId)
+                    val controller = remember(serialSuffix, captureFingerprintId, captureSurveyId, captureEquipmentProfileVersionId) {
+                        FocusedCaptureController(
+                            this@MainActivity, serialSuffix, captureFingerprintId, captureSurveyId,
+                            captureEquipmentProfileVersionId,
+                        )
                     }
                     FocusedCaptureScreen(
                         controller = controller,
@@ -434,7 +601,15 @@ class MainActivity : ComponentActivity() {
         recoverable: SurveyLaunch?, onRecover: (SurveyLaunch) -> Unit, onPreflight: () -> Unit,
         onFocusedCapture: () -> Unit,
         onImport: () -> Unit,
+        compatibility: CompatibilityReceiveState,
+        onStopCompatibility: () -> Unit,
     ) {
+        Section("Before the first survey") {
+            Text("Receive only: this app has no transmit control. RF amplifier and antenna-port power start Off.")
+            Text("Choose the antenna and fixed gain deliberately. Results are relative dBFS observations, not calibrated field strength or a transmitter location.")
+            Text("Precise locations, device identity, notes, frequencies, and IQ stay in app-private storage until you review and explicitly share an export.")
+            Text("Use a powered OTG hub when needed, protect the HackRF input from strong signals, and follow local interception and disclosure law.")
+        }
         recoverable?.let { value ->
             Section("Interrupted survey") {
                 Text("A prior survey can be recovered paused. Its interruption will be recorded as a gap.")
@@ -451,6 +626,23 @@ class MainActivity : ComponentActivity() {
                 pendingCompatibilityTest = true
                 locationLauncher.launch(SURVEY_PERMISSIONS)
             }) { Text("Run compatibility receive test") }
+            if (compatibility.phase != "idle" || compatibility.detail.isNotBlank()) {
+                Text("Receive test: ${compatibility.phase}")
+                if (compatibility.device != "—") Text("Hardware: ${compatibility.device}")
+                if (compatibility.sampleRateHz > 0) {
+                    Text("Measured: ${"%.2f".format(compatibility.bytesPerSecond / 2_000_000.0)} MS/s; ${formatBytes(compatibility.bytes)} delivered")
+                    Text("Dropped buffers: ${compatibility.droppedBuffers}; callback errors: ${compatibility.callbackErrors}")
+                }
+                if (compatibility.phase in setOf("opening", "receiving", "sweeping")) {
+                    OutlinedButton(onClick = onStopCompatibility) { Text("Stop receive test") }
+                }
+                if (compatibility.detail.isNotBlank()) {
+                    Text(
+                        compatibility.detail,
+                        color = if (compatibility.phase == "error") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
         }
         Section("Equipment profile v1") {
             OutlinedTextField(antennaName, onAntennaName, label = { Text("Antenna name") }, modifier = Modifier.fillMaxWidth())
@@ -529,7 +721,8 @@ class MainActivity : ComponentActivity() {
             Text("Device: ${state.device}")
             Text("Ranges: ${state.configuredRanges}")
             Text("Current subrange: ${state.currentRange}")
-            Text("Duration: ${state.startedAtEpochMs?.let { formatDuration(System.currentTimeMillis() - it) } ?: "—"}; distance: ${"%.2f".format(state.distanceMeters / 1_000.0)} km")
+            val elapsed = state.startedAtEpochMs?.let { (System.currentTimeMillis() - it).coerceAtLeast(0L) }
+            Text("Collection time: ${formatDuration(state.activeDurationMs)}; elapsed since start: ${elapsed?.let(::formatDuration) ?: "—"} (includes pauses/gaps); distance: ${"%.2f".format(state.distanceMeters / 1_000.0)} km")
             Text("USB: ${"%.2f".format(state.usbBytesPerSecond / 1_000_000.0)} MB/s")
             Text("Aggregates persisted: ${state.aggregatesPersisted}")
             Text("GPS accuracy: ${state.locationAccuracyM?.let { "%.1f m".format(it) } ?: "missing"}; fix age: ${state.locationFixAgeMs?.let { "${it / 1_000}s" } ?: "—"}")
@@ -549,14 +742,26 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    @Composable private fun SummaryPage(summary: SurveySummary?, onNew: () -> Unit, onProcess: () -> Unit) {
+    @Composable private fun SummaryPage(
+        summary: SurveySummary?,
+        exportMessage: String?,
+        onNew: () -> Unit,
+        onShareExport: (ExportPolicy) -> Unit,
+        onSaveExport: (ExportPolicy) -> Unit,
+        onProcess: () -> Unit,
+    ) {
+        var includeIq by remember { mutableStateOf(false) }
+        var includeRoutes by remember { mutableStateOf(true) }
+        var coordinateMode by remember { mutableStateOf(CoordinateMode.ROUNDED) }
+        var includeNotes by remember { mutableStateOf(false) }
+        var includeIdentifiers by remember { mutableStateOf(false) }
         Section("Survey summary") {
             if (summary == null) Text("Finalizing persisted results…") else {
                 Text("Status: ${summary.survey.status}")
                 Text("Spectrum aggregates: ${summary.aggregateCount}")
                 Text("Location fixes: ${summary.locationFixCount}")
                 val duration = (summary.survey.endedAtEpochMs ?: System.currentTimeMillis()) - (summary.survey.startedAtEpochMs ?: summary.survey.lastWallTimeEpochMs)
-                Text("Duration: ${formatDuration(duration)}; route distance: ${"%.2f".format(summary.survey.distanceMeters / 1_000.0)} km")
+                Text("Collection time: ${formatDuration(summary.activeDurationMs)}; elapsed span: ${formatDuration(duration)} (includes pauses/gaps); route distance: ${"%.2f".format(summary.survey.distanceMeters / 1_000.0)} km")
                 Text("Located observation batches: ${"%.1f".format(summary.survey.locationCoverageRatio * 100)}%")
                 Text("Explicit acquisition gaps: ${summary.gapCount}")
                 summary.gaps.forEach { gap ->
@@ -572,6 +777,30 @@ class MainActivity : ComponentActivity() {
                     health.warning?.let { Text("Health: $it", color = MaterialTheme.colorScheme.error) }
                 }
             }
+        }
+        Section("Reviewed survey export") {
+            Text("Nothing leaves app-private storage until you create this bundle and choose an Android share destination.")
+            ReviewedExportOption("Include linked IQ", includeIq) { includeIq = it }
+            ReviewedExportOption("Include route", includeRoutes) { includeRoutes = it }
+            ReviewedExportOption("Include notes and user-entered labels", includeNotes) { includeNotes = it }
+            ReviewedExportOption("Include device identifier suffix", includeIdentifiers) { includeIdentifiers = it }
+            CoordinateMode.entries.forEach { mode ->
+                OutlinedButton(onClick = { coordinateMode = mode }, modifier = Modifier.fillMaxWidth()) {
+                    Text("${mode.name.lowercase()} coordinates${if (coordinateMode == mode) " ✓" else ""}")
+                }
+            }
+            Text("Manifest review: IQ=$includeIq, route=$includeRoutes, coordinates=${coordinateMode.name.lowercase()}, notes=$includeNotes, identifiers=$includeIdentifiers")
+            Button(
+                enabled = summary?.survey?.status == SurveyStatus.COMPLETE.name,
+                onClick = { onShareExport(ExportPolicy(includeIq, includeRoutes, coordinateMode, includeNotes, includeIdentifiers)) },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Create reviewed survey bundle and open share sheet") }
+            OutlinedButton(
+                enabled = summary?.survey?.status == SurveyStatus.COMPLETE.name,
+                onClick = { onSaveExport(ExportPolicy(includeIq, includeRoutes, coordinateMode, includeNotes, includeIdentifiers)) },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Save reviewed survey bundle") }
+            exportMessage?.let { Text(it) }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = onProcess) { Text("Process discoveries") }
@@ -612,8 +841,16 @@ class MainActivity : ComponentActivity() {
     @Composable private fun GainPicker(label: String, value: Int, range: IntProgression, onValue: (Int) -> Unit) {
         Text("$label: $value dB")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(enabled = value > range.first, onClick = { onValue((value - range.step).coerceAtLeast(range.first)) }) { Text("−") }
-            OutlinedButton(enabled = value < range.last, onClick = { onValue((value + range.step).coerceAtMost(range.last)) }) { Text("+") }
+            OutlinedButton(
+                enabled = value > range.first,
+                onClick = { onValue((value - range.step).coerceAtLeast(range.first)) },
+                modifier = Modifier.semantics { contentDescription = "Decrease $label" },
+            ) { Text("−") }
+            OutlinedButton(
+                enabled = value < range.last,
+                onClick = { onValue((value + range.step).coerceAtMost(range.last)) },
+                modifier = Modifier.semantics { contentDescription = "Increase $label" },
+            ) { Text("+") }
         }
     }
 
@@ -705,6 +942,7 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val ACTION_USB_PERMISSION = "dev.rfnotebook.action.USB_PERMISSION"
+        private const val STATE_PAGE = "rf-field-notebook.page"
         private const val HACKRF_VENDOR_ID = 0x1d50
         private val HACKRF_PRODUCT_IDS = setOf(0x6089, 0x604b, 0xcc15)
         private val STARTER_BANDS = listOf("315 MHz", "433 MHz", "150–174 MHz", "450–470 MHz", "902–928 MHz")
@@ -713,5 +951,19 @@ class MainActivity : ComponentActivity() {
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.POST_NOTIFICATIONS,
         )
+    }
+}
+
+@Composable
+internal fun ReviewedExportOption(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .toggleable(checked, role = Role.Checkbox, onValueChange = onCheckedChange)
+            .semantics(mergeDescendants = true) { contentDescription = label },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Checkbox(checked = checked, onCheckedChange = null)
+        Text(label)
     }
 }

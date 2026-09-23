@@ -839,24 +839,31 @@ phone before full application construction begins.
 - Collaborative sharing of deliberately redacted fingerprints.
 - Additional receive-only SDR hardware.
 
-## 23. Open decisions before implementation
+## 23. Resolved MVP implementation decisions
 
-1. Target Android phone model, OS version, chipset, and available storage.
-2. USB-C hub and external power arrangement.
-3. Android ABIs to ship initially.
-4. Native dependency build and redistribution/license strategy.
-5. Resolved by ADR 007 for the initial release: OpenFreeMap Liberty with
+1. Pixel 8a on Android 17 is the evidenced MVP phone. Field runs retained at
+   least 24 GiB available storage; broader OEM coverage is post-MVP.
+2. The evidenced topology directly bus-powers the HackRF from the Pixel through
+   the recorded USB-C/USB-A adapter and USB-A/Micro-USB data cable. A powered
+   OTG hub is recommended when direct power is unstable; it is not implied to
+   have been used in the recorded direct runs.
+3. ADR 009 ships `arm64-v8a` and `x86_64`; both ABIs use the same symbol-audited
+   receive-only boundary.
+4. ADR 002 pins the native source/build strategy and redistribution materials.
+5. ADR 007 selects OpenFreeMap Liberty with
    explicit offline regions, attribution, progress/byte reporting, and no
-   automatic survey-data access. M5 re-checks current terms before release.
-6. Initial sweep bin width and revisit targets after device benchmarks.
-7. Resolved by ADR 007: no hard fix is invented or discarded solely by a map
+   automatic survey-data access. M5 re-checked current terms before release.
+6. The starter field profile uses 100 kHz bins and a 1,000 ms target revisit;
+   measured sample-rate/storage estimates remain visible before start.
+7. ADR 007 requires that no hard fix is invented or discarded solely by a map
    threshold; cells expand to at least twice the largest supporting reported
    accuracy, while stale and missing fixes stay explicitly unplaced.
-8. Whether the first distribution is private sideloading or Google Play.
-9. Resolved by ADR 008 for the MVP: strict bundle and capture-sidecar schema
+8. ADR 009 selects a release-signed private sideload rather than Google Play.
+9. ADR 008 selects strict bundle and capture-sidecar schema
    `1.0.0`, with hash/length inventory, staged same-version import, independent
    redaction controls, and explicit future-version migration.
-10. Name and visual identity after the technical spikes validate feasibility.
+10. The MVP name is **RF Field Notebook**. Visual identity remains deliberately
+    utilitarian and does not change the technical contract.
 
 ## 24. Definition of ready for implementation
 

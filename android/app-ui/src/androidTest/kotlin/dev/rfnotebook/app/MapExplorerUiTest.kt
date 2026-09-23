@@ -13,6 +13,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -45,7 +48,11 @@ class MapExplorerUiTest {
     @Test fun equivalentListExposesUncertaintyGapsAndComparabilityWithoutColor() {
         compose.setContent {
             MaterialTheme {
-                Surface(Modifier.fillMaxSize().statusBarsPadding()) { MapExplorerPage(dataset(), "fp-a", {}) }
+                Surface(Modifier.fillMaxSize().statusBarsPadding()) {
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        MapExplorerPage(dataset(), "fp-a", {})
+                    }
+                }
             }
         }
 
@@ -63,7 +70,11 @@ class MapExplorerUiTest {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = 1.5f)) {
                 MaterialTheme(colorScheme = darkColorScheme()) {
-                    Surface(Modifier.fillMaxSize().statusBarsPadding()) { MapExplorerPage(dataset(), "fp-a", {}) }
+                    Surface(Modifier.fillMaxSize().statusBarsPadding()) {
+                        Column(Modifier.verticalScroll(rememberScrollState())) {
+                            MapExplorerPage(dataset(), "fp-a", {})
+                        }
+                    }
                 }
             }
         }
@@ -78,7 +89,11 @@ class MapExplorerUiTest {
         val started = SystemClock.elapsedRealtime()
         compose.setContent {
             MaterialTheme {
-                Surface(Modifier.fillMaxSize().statusBarsPadding()) { MapExplorerPage(large, "fp-a", {}) }
+                Surface(Modifier.fillMaxSize().statusBarsPadding()) {
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        MapExplorerPage(large, "fp-a", {})
+                    }
+                }
             }
         }
         compose.onNodeWithText("Show filters").performClick()
