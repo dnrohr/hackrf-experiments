@@ -2,6 +2,8 @@ package dev.rfnotebook.storage
 
 import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonToken
+import com.google.gson.JsonNull
+import com.google.gson.JsonParser
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -178,26 +180,25 @@ object SurveyBundleExporter {
     }
 
     private fun redactCaptureSidecar(jsonText: String, policy: ExportPolicy): String {
-        var result = jsonText
+        val root = JsonParser.parseString(jsonText).asJsonObject
         if (!policy.includeDeviceIdentifiers) {
-            result = Regex("\"deviceSerialSuffix\"\\s*:\\s*(?:null|\"(?:\\\\.|[^\"])*\")")
-                .replace(result, "\"deviceSerialSuffix\":null")
+            root.add("deviceSerialSuffix", JsonNull.INSTANCE)
         }
         if (!policy.includeNotes) {
-            result = Regex("\"note\"\\s*:\\s*\"(?:\\\\.|[^\"])*\"")
-                .replace(result, "\"note\":\"\"")
+            root.addProperty("note", "")
         }
-        result = when (policy.coordinateMode) {
-            CoordinateMode.FULL -> result
-            CoordinateMode.OMITTED -> Regex("\"location\"\\s*:\\s*(?:null|\\{[^{}]*})")
-                .replace(result, "\"location\":null")
-            CoordinateMode.ROUNDED -> Regex("(\"(?:latitude|longitude)\"\\s*:\\s*)(-?\\d+(?:\\.\\d+)?)")
-                .replace(result) { match ->
-                    val rounded = "%.3f".format(java.util.Locale.ROOT, match.groupValues[2].toDouble())
-                    match.groupValues[1] + rounded
+        when (policy.coordinateMode) {
+            CoordinateMode.FULL -> Unit
+            CoordinateMode.OMITTED -> root.add("location", JsonNull.INSTANCE)
+            CoordinateMode.ROUNDED -> root.get("location")?.takeUnless { it.isJsonNull }?.asJsonObject?.let { location ->
+                listOf("latitude", "longitude").forEach { field ->
+                    location.get(field)?.takeUnless { it.isJsonNull }?.asDouble?.let { value ->
+                        location.addProperty(field, "%.3f".format(Locale.ROOT, value).toDouble())
+                    }
                 }
+            }
         }
-        return result
+        return root.toString()
     }
 }
 

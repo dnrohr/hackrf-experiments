@@ -8,6 +8,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.room.testing.MigrationTestHelper
 import dev.rfnotebook.domain.FrequencyRange
 import java.util.UUID
+import java.util.zip.ZipFile
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertArrayEquals
@@ -281,6 +282,7 @@ class NotebookDatabaseTest {
         assertEquals(100_000L, content.band?.binWidthHz)
         assertEquals(listOf(iq, sidecar, preview), content.captureFiles)
         captureDirectory.deleteRecursively()
+        Unit
     }
 
     @Test
@@ -311,8 +313,8 @@ class NotebookDatabaseTest {
         val completed = requireNotNull(dao.survey(survey.id))
         assertEquals("COMPLETE", completed.status)
         assertEquals(5, completed.revision)
-        assertEquals(2_000, completed.endedAtEpochMs)
-        assertEquals(2_000, dao.surveyGaps(survey.id).single().endedWallTimeEpochMs)
+        assertEquals(2_000L, completed.endedAtEpochMs)
+        assertEquals(2_000L, dao.surveyGaps(survey.id).single().endedWallTimeEpochMs)
         val event = dao.surveyStateEvents(survey.id).single()
         assertEquals("FINALIZING", event.fromStatus)
         assertEquals("COMPLETE", event.toStatus)
@@ -351,6 +353,54 @@ class NotebookDatabaseTest {
             assertEquals("FAILED", rows.getValue(failedId).status)
             assertTrue(directory.resolve("$completeId.cs8").isFile)
             assertTrue(!directory.resolve("$failedId.cs8.part").exists())
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun redactedCaptureExportUsesAndroidCompatibleStructuredJson() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val directory = java.io.File(context.cacheDir, "capture-export-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val metadata = CaptureMetadata(
+                "android-redaction", "fingerprint", "survey", 1_000, 2_000, 250,
+                915_000_000, 2_000_000, 1_750_000, 16, 16, false, false,
+                "equipment:v1", "secret-suffix", 42.123456, -71.654321, 5f, 0,
+                "secret note", "1.0.0-rc1",
+            )
+            val capture = AtomicIqCapture(directory, metadata, expectedBytes = 4).run {
+                append(byteArrayOf(1, -1, 2, -2))
+                complete()
+            }
+            val archive = SurveyBundleExporter.create(
+                directory.resolve("redacted.zip"),
+                SurveyBundleContent(
+                    surveyId = "survey", surveyName = "Focused IQ capture",
+                    generatedAtEpochMs = 1_000, appVersion = "1.0.0-rc1",
+                    serialSuffix = "secret-suffix", notes = "secret note",
+                    observationsCsv = "frequency_hz,latitude,longitude\n",
+                    routeGeoJson = "{\"type\":\"FeatureCollection\",\"features\":[]}",
+                    aggregatesGeoJson = "{\"type\":\"FeatureCollection\",\"features\":[]}",
+                    captureFiles = listOf(capture.iqFile, capture.sidecarFile, capture.previewFile),
+                ),
+                ExportPolicy(
+                    includeIq = true, includeRoutes = false,
+                    coordinateMode = CoordinateMode.OMITTED,
+                    includeNotes = false, includeDeviceIdentifiers = false,
+                ),
+            )
+
+            SurveyBundleImporter.inspect(archive)
+            val sidecar = ZipFile(archive).use { zip ->
+                zip.getInputStream(zip.getEntry("captures/android-redaction.json"))
+                    .bufferedReader().use { it.readText() }
+            }
+            assertTrue(sidecar.contains("\"deviceSerialSuffix\":null"))
+            assertTrue(sidecar.contains("\"location\":null"))
+            assertTrue(!sidecar.contains("secret-suffix"))
+            assertTrue(!sidecar.contains("secret note"))
+            assertTrue(!sidecar.contains("42.123456"))
         } finally {
             directory.deleteRecursively()
         }

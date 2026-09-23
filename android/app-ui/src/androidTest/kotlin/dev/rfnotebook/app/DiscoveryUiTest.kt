@@ -13,6 +13,9 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -113,7 +116,7 @@ class DiscoveryUiTest {
     }
 
     @Test fun reviewedExportOptionIsOneLabeledCheckboxTarget() {
-        var checked = false
+        var checked by mutableStateOf(false)
         compose.setContent {
             MaterialTheme { ReviewedExportOption("Include linked IQ", checked) { checked = it } }
         }
