@@ -34,6 +34,10 @@ receive-only Android application for one directly attached HackRF One.
 - Streamed IQ into ZIP output, redacted nested capture sidecars, limited hostile
   archives, corrected compression-ratio and coordinate-rounding logic, and
   required atomic export replacement.
+- Replaced platform-sensitive capture-sidecar redaction regexes with structured
+  JSON rewriting after Android 17 exposed an ICU syntax incompatibility during
+  the physical reviewed-export workflow; connected and physical regressions
+  cover the corrected minified build.
 - Strictly validates capture sidecars and complete IQ/sidecar/preview groups on
   import, caps the selected compressed archive, and enforces the storage reserve
   during both staging and extraction.

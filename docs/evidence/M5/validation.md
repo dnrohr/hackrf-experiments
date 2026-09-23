@@ -13,8 +13,8 @@ cd android
 .\gradlew.bat clean lint test assembleDebug assembleRelease
 ```
 
-Result: **BUILD SUCCESSFUL**, 717 actionable tasks (391 executed, 254 from
-cache, 72 up-to-date). This covers every module's JVM tests, Android lint,
+Final source-revision result: **BUILD SUCCESSFUL**, 717 actionable tasks (354
+executed, 291 from cache, 72 up-to-date). This covers every module's JVM tests, Android lint,
 debug packaging, release compilation, native builds for the reviewed ABIs, R8
 minification, and resource shrinking.
 
@@ -44,42 +44,39 @@ The following checks pass:
 
 ## Connected device regression
 
-The most recent complete aggregate connected suite passed on the unlocked Pixel
-8a before the final duration/rotation/archive additions:
+The final complete aggregate connected suite passed on the unlocked physical
+Pixel 8a after the Android sidecar-export fix:
 
 ```powershell
 cd android
 .\gradlew.bat connectedDebugAndroidTest
 ```
 
-That result after the completed-survey export/navigation change was **BUILD
-SUCCESSFUL** in 58 seconds, 412 actionable tasks. The two modules with device
-tests reported 24/24 passing: 14 app/UI tests and 10
-Room/storage tests, with zero failures, errors, or skips. This includes
-`M5HardeningUiTest` (2 tests), the production-shaped map regression (3 tests),
+The result was **BUILD SUCCESSFUL** in 1 minute 3 seconds, 412 actionable tasks.
+The two modules with device tests reported **29/29 passing**: 16 app/UI tests
+and 13 Room/storage tests, with zero failures, errors, or skips. This includes
+`M5HardeningUiTest` (3 tests), the production-shaped map regression (3 tests),
 permission-denial/task-removal behavior, completed-survey summary reopening,
-discovery UI, migrations, corrupt database handling, and complete Room-derived
-export content. Modules without
+discovery UI, migrations, corrupt database handling, complete Room-derived
+export content, interrupted capture/finalization recovery, and structured
+sidecar redaction using Android's JSON implementation. Modules without
 instrumented cases packaged and completed their connected tasks. The debug
 package identity is `dev.rfnotebook.debug`, isolated from the release package;
-post-run package inspection confirmed `dev.rfnotebook` remained installed. The
-final connected rerun remains required and this historical pass is not used to
-claim that the newly added connected cases have executed.
+post-run package inspection confirmed `dev.rfnotebook` remained installed.
 
 ## Hardware and field validation
 
 The integrated physical results are recorded in [field-report.md](field-report.md),
 [screen-off-evidence.md](screen-off-evidence.md), and
-[adverse-conditions.md](adverse-conditions.md). The long M5 endurance run is
-accepted and will not be repeated. A short final workflow remains solely to
-exercise the changed map/export path and preserve an integrated bundle/capture
-artifact after the earlier private database was removed by the old test
-identity.
+[adverse-conditions.md](adverse-conditions.md). The final short workflow added
+direct one-second capture, strict sidecar/hash validation, full and redacted
+archive validation, same-release reimport, and a no-crash strength-map traversal
+for the degraded-location dataset.
 
 ## Release gate
 
 The signed release set and final checksums are recorded in
-[release-checksums.md](release-checksums.md) only after the connected and short
-hardware workflows complete. `Test-M5Evidence.ps1` intentionally fails before
-then because incomplete acceptance rows and an unfinished handoff must not be
-mistaken for a release candidate.
+[release-checksums.md](release-checksums.md). After the completion audit,
+milestone handoff, roadmap, and checksums were finalized,
+`scripts/Test-M5Evidence.ps1` passed rather than allowing incomplete acceptance
+rows to be mistaken for a release candidate.

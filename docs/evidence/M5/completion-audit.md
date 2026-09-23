@@ -1,6 +1,6 @@
 # M5 completion audit
 
-Audit date: 2026-09-22. “Pass” means direct implementation plus automated,
+Audit dates: 2026-09-22 through 2026-09-23. “Pass” means direct implementation plus automated,
 hardware, field, schema, or UI evidence exists; a planning reference alone is
 not accepted. Exact private coordinates and the full HackRF serial are omitted.
 
@@ -85,15 +85,14 @@ Count: **64 Pass, 0 incomplete**.
 | 4 | Pass | M1 Pixel/HackRF runs persisted and surfaced three real USB overruns and closed physical `USB_DETACH` / `PROCESS_DEATH` gaps; later gates preserve the healthy zero-count path. |
 | 5 | Pass | Pixel/HackRF runs retain accuracy-bearing fixes (including 8.2 m and 18.9 m observations), stale/missing states, and recovery to fresh fixes without invented coordinates; [adverse conditions](adverse-conditions.md). |
 | 6 | Pass | M2 recorded-data clustering and physical survey reprocessing; [field report](field-report.md) |
-| 7 | Pass | M3 Pixel uncertainty-aware map/equivalent-list evidence; M5 reproduced the nested-scroll crash on the Pixel and passed the production-shaped 20,000-observation regression after the fix. |
-| 8 | Incomplete | M4 Pixel/HackRF capture passes, but the requested integrated M5 capture artifact is still pending. |
-| 9 | Incomplete | M4 sidecar/hash validation passes; the integrated M5 capture artifact is still pending. |
-| 10 | Incomplete | Automated and M4 round trips pass; the integrated M5 physical export/reimport is still pending. |
-| 11 | Incomplete | Redaction matrix tests pass; the integrated M5 reviewed redacted export is still pending. |
+| 7 | Pass | M3 Pixel uncertainty-aware map/equivalent-list evidence; M5 reproduced the nested-scroll crash on the Pixel, fixed it, passed the production-shaped 20,000-observation regression, and reopened the map for the 93-unlocated-detection physical dataset with no new Android crash. |
+| 8 | Pass | The Pixel/HackRF revisit workflow completed a one-second focused capture. The release UI reported the completed IQ/sidecar/PGM set; the linked archive contains 8,000,000 CS8 bytes (4,000,000 complex samples at 4 MS/s), zero capture gaps, and zero overruns. See [field report](field-report.md). |
+| 9 | Pass | `Test-M4Capture.ps1` validated both full and redacted extracted copies of the physical capture: signed interleaved I,Q bytes, exact byte/sample relationship, sidecar SHA-256, 4 MS/s rate, and center frequency. Every bundle manifest length/hash also passed. |
+| 10 | Pass | The release app saved a full capture-bearing bundle (`0cfa3ee4…c2d56`), desktop inspection validated all nine inventory records, and the same signed release reimported it without rejection or partial commit. |
+| 11 | Pass | The release app saved a reviewed capture-bearing bundle (`f31b8b27…ca618`) with IQ=true, route=false, coordinates=omitted, notes=false, identifiers=false. Structured sidecar inspection found null location/device suffix and an empty note, all seven inventory records matched, and Pixel reimport passed. |
 | 12 | Pass | Source, release, JNI symbol, and physical runtime receive-only audits; [safety/privacy review](safety-privacy-receive-only.md) |
 | 13 | Pass | Physical Pixel/HackRF detach/reconnect and force-stop recovery finalized closed gaps; the physical active-service low-storage branch stopped orderly, and corrupt DB/archive fixtures fail closed; [adverse conditions](adverse-conditions.md). |
 
-Count: **9 Pass, 4 incomplete**. No incomplete row is treated as release
-evidence. No accepted evidence is an emulator or a simulated substitute for the
-required Pixel 8a/HackRF scenarios. Thermal stress alone may use the
-milestone-authorized safe synthetic equivalent.
+Count: **13 Pass, 0 incomplete**. No accepted evidence is an emulator or a
+simulated substitute for the required Pixel 8a/HackRF scenarios. Thermal stress
+alone uses the milestone-authorized safe synthetic equivalent.

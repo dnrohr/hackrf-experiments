@@ -65,9 +65,11 @@ Result: **Pass — no application-accessible transmit path**.
   storage permission is requested.
 - M5 found and fixed a high-severity privacy defect: a redacted bundle that kept
   IQ could previously retain protected fields inside the capture sidecar. The
-  exporter now rewrites sidecar device suffix, note, and location according to
-  the independent redaction choices, hashes the rewritten entry, and regression
-  tests inspect the ZIP contents.
+  exporter now parses structured JSON and rewrites sidecar device suffix, note,
+  and location according to the independent redaction choices, hashes the
+  rewritten entry, and JVM/Android regressions inspect the ZIP contents. The
+  structured rewrite also resolved the Android ICU regex incompatibility found
+  during the final physical export.
 - The same reviewed notes/labels choice now removes user-entered survey, band,
   antenna, adapter, survey-note, and capture-note text. Device suffix and
   location choices remain independent.

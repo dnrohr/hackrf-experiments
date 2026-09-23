@@ -30,6 +30,7 @@ constraints; none substitutes for an unmet MVP acceptance criterion.
 - Offline map storage is managed by MapLibre. Region deletion/reclamation UI is
   basic and storage should be checked before downloading a large area.
 
-The release decision remains open while the completion audit has incomplete
-rows. No unresolved critical or high-severity defect may be accepted for the
-final `1.0.0-rc1` candidate.
+The single-device/private-sideload release decision is accepted for
+`1.0.0-rc1`. The completion audit has no incomplete row and the final review
+found no unresolved critical or high-severity defect. These limitations remain
+operator-visible boundaries and post-MVP risks, not waived acceptance criteria.

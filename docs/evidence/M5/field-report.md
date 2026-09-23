@@ -79,9 +79,9 @@ shared storage found no survey bundle, IQ file, or sidecar from this run.
 
 The collected field work was valid; the loss was caused by the validation
 procedure. The endurance result above remains independently evidenced by Android
-battery and crash records. The deleted database cannot honestly support claims
-about a completed M5 bundle round trip, so those rows remain incomplete until a
-short replacement capture/export/reimport workflow is performed.
+battery and crash records. The deleted database was never used to claim a bundle
+round trip; the isolated release identity and short replacement workflow below
+provide that evidence instead.
 
 The build is now hardened so debug and instrumentation installs use
 `dev.rfnotebook.debug`, while the private-sideload release remains
@@ -143,17 +143,54 @@ After validation, the exact exported ZIP and all RF Field Notebook app-private
 test data were removed from the Pixel at the operator's request. The release app
 remains installed with clean storage; unrelated device files were not touched.
 
-## Remaining short physical workflow
+## Final capture, export, map, and reimport workflow
 
-The long endurance run and the completed 104,000-observation replacement survey
-will not be repeated. Direct evidence is still required for:
+On 2026-09-23 the corrected signed release was installed in place on the Pixel,
+preserving release data while connected tests continued under the isolated
+debug identity. The operator directly attached the HackRF and completed a short
+902–928 MHz survey at 4 MS/s and fixed 16/16 dB gains. Processing retained a
+truthful partial result: 93 detections had no associated location fix. No
+coordinate was invented or discarded.
 
-1. create a 1–5 second physical IQ capture and validate its sidecar on Windows;
-2. create a reviewed redacted bundle from the capture-bearing workflow;
-3. reimport both full and redacted bundles on the Pixel and preserve their
-   checksums; and
-4. traverse discovery, repaired strength map/equivalent list, and revisit in
-   that capture-bearing workflow.
+The operator selected a discovery, revisited it in focused RX, and completed a
+one-second physical IQ capture. The UI reported a complete IQ file, SHA-256,
+sidecar, and PGM preview. The capture-bearing survey export retained one strict
+artifact trio. Windows validation found 8,000,000 signed interleaved I,Q bytes,
+4,000,000 complex samples at 4 MS/s, zero gaps, zero overruns, and a sidecar hash
+matching the IQ bytes. `scripts/Test-M4Capture.ps1` passed independently for the
+copies extracted from both exported archives.
 
-No item in this section is reported as passed until its direct artifact is
-recorded.
+The first attempt to create the coordinate-omitted capture export crashed only
+the export UI. Android's retained crash buffer identified an Android ICU
+`PatternSyntaxException` in the nested capture-sidecar location-redaction
+regular expression. The authoritative capture remained complete and indexed.
+The exporter was changed to parse and rewrite structured JSON instead of using
+the platform-sensitive regex. A new Android 17 regression creates a protected
+capture sidecar, exports it with IQ retained and every protected field omitted,
+validates the archive, and inspects the rewritten JSON. The corrected minified,
+release-signed APK passed that exact physical export path without a crash.
+
+The release app then wrote two explicit local documents:
+
+| Archive | Reviewed policy | Bytes | SHA-256 | Result |
+| --- | --- | ---: | --- | --- |
+| `rf-field-notebook-m5-full.zip` | IQ, route, full coordinates, notes, and identifier suffix included | 515,537 | `0cfa3ee4d0aff22beaad5394432de34de3c22c6304622939b0696b0dfa1c2d56` | Nine inventoried files; all lengths/hashes pass; release-app reimport passes |
+| `rf-field-notebook-m5-redacted.zip` | IQ included; route, coordinates, notes, and identifier suffix omitted | 502,788 | `f31b8b27f6161be54e101932d43fe16bf4e2479714bdbafd8206bf36c0fca618` | Seven inventoried files; structured sidecar has null location/suffix and empty note; release-app reimport passes |
+
+Both archives were transferred to the gitignored `.state/M5/` workspace before
+inspection. The production importer accepted both through Android's document
+picker and reported no rejection. Manifest byte counts and SHA-256 values,
+capture group completeness, sidecar/IQ consistency, and privacy flags were
+also validated on Windows.
+
+Finally, the corrected release reopened the selected discovery's **Observed
+relative strength** screen for the 93-unlocated-detection dataset. The UI showed
+the missing-location state and Android's freshly cleared crash buffer remained
+empty. This closes the operator-reported map failure on the physical phone.
+
+After all artifacts were copied and validated, the two exact Downloads ZIPs and
+all RF Field Notebook app-private surveys, captures, imports, and cache were
+deleted from the Pixel at the operator's request. A search found zero remaining
+RF Field Notebook export ZIP/part files. The signed app remains installed in a
+clean first-run state, and unrelated phone files were not touched. The sanitized
+first-run screen is retained at [ui/first-run-release.png](ui/first-run-release.png).

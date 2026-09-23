@@ -17,6 +17,12 @@ map/list screenshots. No critical or high-severity issue remains.
 | Active one-handed controls | Pass | Pause and Stop are on the first active-screen viewport and in the persistent notification; actions are textual and do not require a gesture. |
 | First-run comprehension | Pass | The first setup section explicitly states receive-only scope, RF/antenna power defaults, deliberate fixed gain/antenna choice, relative-not-calibrated readings, no transmitter-location claim, local protected fields, powered-hub/input safety, and legal responsibility. Connected assertions prevent removal. |
 
+The final release first-run state was visually rechecked after all private data
+was cleared from the Pixel; the sanitized physical-device screenshot is
+[ui/first-run-release.png](ui/first-run-release.png). The corrected release also
+opened the observed-strength screen for a dataset with 93 unlocated detections
+and retained a textual missing-location state without crashing.
+
 ## Defects resolved in M5
 
 1. Gain buttons previously exposed only “−” and “+”. Added explicit semantic

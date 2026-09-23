@@ -1,6 +1,6 @@
 # M5 — Field hardening and MVP release
 
-- Status: In progress
+- Status: Complete
 - Depends on: M4 — Focused capture and export
 - Produces: Audited, field-tested MVP release candidate
 - Next milestone: Post-MVP roadmap decision
@@ -129,21 +129,21 @@ M5. Record recommendation, expected value, risk, and prerequisite milestone.
 
 ## Acceptance criteria
 
-- [ ] Every numbered requirement has direct completion evidence.
-- [ ] Every section-20 MVP acceptance criterion has direct completion evidence.
-- [ ] No unresolved critical or high-severity reliability, security, privacy,
+- [x] Every numbered requirement has direct completion evidence.
+- [x] Every section-20 MVP acceptance criterion has direct completion evidence.
+- [x] No unresolved critical or high-severity reliability, security, privacy,
   accessibility, or data-integrity defect remains.
-- [ ] The receive-only audit finds no application-accessible TX path.
-- [ ] A clean device completes the end-to-end field workflow.
-- [ ] Screen-off, detach, process-death, low-storage, degraded-GPS, and offline-map
+- [x] The receive-only audit finds no application-accessible TX path.
+- [x] A clean device completes the end-to-end field workflow.
+- [x] Screen-off, detach, process-death, low-storage, degraded-GPS, and offline-map
   scenarios preserve truthful state and recover safely.
-- [ ] Full and redacted exports pass privacy review and round-trip.
-- [ ] Documentation covers setup, use, safety, privacy, uncertainty, and recovery.
-- [ ] Release build is reproducible with recorded toolchain and checksums.
-- [ ] Dependency licenses and vulnerabilities have recorded dispositions.
-- [ ] Known limitations are explicit and do not disguise unmet MVP criteria.
-- [ ] Earlier milestone suites and planning validation pass.
-- [ ] `ROADMAP.md` and every milestone handoff match final repository evidence.
+- [x] Full and redacted exports pass privacy review and round-trip.
+- [x] Documentation covers setup, use, safety, privacy, uncertainty, and recovery.
+- [x] Release build is reproducible with recorded toolchain and checksums.
+- [x] Dependency licenses and vulnerabilities have recorded dispositions.
+- [x] Known limitations are explicit and do not disguise unmet MVP criteria.
+- [x] Earlier milestone suites and planning validation pass.
+- [x] `ROADMAP.md` and every milestone handoff match final repository evidence.
 
 ## Validation
 
@@ -173,14 +173,29 @@ hardware, and field procedures documented by prior milestones. Store results in
 
 ## Handoff
 
-Complete this section before marking M5 complete:
+Completed 2026-09-23:
 
-- Commit, branch, and release identifier:
-- Release artifact and checksum:
-- Completion-audit path:
-- Validation summary:
-- Hardware/field evidence:
+- Commit, branch, and release identifier: `4711cdbdecc51c4d2d118501535da72d036ad444`
+  plus the final M5 evidence commit on `main`; private sideload `1.0.0-rc1`.
+- Release artifact and checksum: `rf-field-notebook-1.0.0-rc1.apk`, SHA-256
+  `a57dea4919156d2eca018957dfb384c55f5ae933b63a338889f9563d24d1e347`;
+  complete inventory in [release-checksums](../evidence/M5/release-checksums.md).
+- Completion-audit path: [M5 completion audit](../evidence/M5/completion-audit.md):
+  64/64 numbered requirements and 13/13 MVP criteria pass.
+- Validation summary: clean 717-action host release build, receive-only/JNI,
+  schemas, dependency, release and planning gates pass; physical Pixel connected
+  suite 29/29 passes. See [validation](../evidence/M5/validation.md).
+- Hardware/field evidence: Pixel 8a / Android 17 and HackRF One firmware
+  `2026.01.3`, including screen-off, detach/reconnect, degraded GPS, capture,
+  full/redacted export/reimport, and repaired map traversal. See
+  [field report](../evidence/M5/field-report.md) and
+  [adverse conditions](../evidence/M5/adverse-conditions.md).
 - Safety/privacy/accessibility evidence:
-- ADRs and dependency inventory:
-- Known limitations:
-- Recommended next milestone:
+  [receive-only/privacy review](../evidence/M5/safety-privacy-receive-only.md) and
+  [accessibility review](../evidence/M5/accessibility-and-usability.md); no open
+  critical/high-severity defect.
+- ADRs and dependency inventory: accepted ADRs 001–009 and
+  [dependency/license review](../evidence/M5/dependencies-and-licenses.md).
+- Known limitations: [M5 known limitations](../evidence/M5/known-limitations.md).
+- Recommended next milestone: device-diversity and long-duration reliability;
+  see [post-MVP recommendation](../evidence/M5/post-mvp-recommendation.md).

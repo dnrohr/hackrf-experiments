@@ -1,6 +1,6 @@
 # Android RF Field Notebook — Application Specification
 
-- Status: Draft for implementation
+- Status: MVP `1.0.0-rc1` implemented and acceptance-validated
 - Working title: RF Field Notebook
 - Primary platform: Android 10+ (API 29+)
 - Primary radio: HackRF One
@@ -864,6 +864,11 @@ phone before full application construction begins.
    redaction controls, and explicit future-version migration.
 10. The MVP name is **RF Field Notebook**. Visual identity remains deliberately
     utilitarian and does not change the technical contract.
+11. M5 completed the cross-cutting audit with all 64 numbered requirements and
+    all 13 section-20 acceptance criteria backed by direct evidence on the
+    Pixel 8a / HackRF One. The signed private-sideload artifact, source revision,
+    checksums, field results, and explicit limitations are recorded under
+    `docs/evidence/M5/`; no critical or high-severity defect remains open.
 
 ## 24. Definition of ready for implementation
 
