@@ -51,7 +51,7 @@ the private key.
 M5 records package/version/ABI inspection, release shrinker results, APK and
 certificate hashes, Pixel 8a installation/update behavior, and exact build
 commands in [release-checksums](../evidence/M5/release-checksums.md). The final
-candidate is source revision `4711cdbdecc51c4d2d118501535da72d036ad444`;
+candidate is source revision `f2f4fcf61790ad23131c976ea2f3b893b4a5d31e`;
 the physical capture/export/reimport workflow used its deterministic APK bytes.
 
 ## Follow-up

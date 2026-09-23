@@ -175,8 +175,9 @@ hardware, and field procedures documented by prior milestones. Store results in
 
 Completed 2026-09-23:
 
-- Commit, branch, and release identifier: `4711cdbdecc51c4d2d118501535da72d036ad444`
-  plus the final M5 evidence commit on `main`; private sideload `1.0.0-rc1`.
+- Commit, branch, and release identifier: source/release revision
+  `f2f4fcf61790ad23131c976ea2f3b893b4a5d31e` plus the final checksum metadata
+  commit on `main`; private sideload `1.0.0-rc1`.
 - Release artifact and checksum: `rf-field-notebook-1.0.0-rc1.apk`, SHA-256
   `a57dea4919156d2eca018957dfb384c55f5ae933b63a338889f9563d24d1e347`;
   complete inventory in [release-checksums](../evidence/M5/release-checksums.md).

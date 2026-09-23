@@ -9,7 +9,7 @@ password are never part of the release set or repository.
 
 - Version: `1.0.0-rc1`
 - Package: `dev.rfnotebook`
-- Source revision: `4711cdbdecc51c4d2d118501535da72d036ad444`
+- Source revision: `f2f4fcf61790ad23131c976ea2f3b893b4a5d31e`
 - APK size: 26,032,383 bytes
 - APK signature: Android APK Signature Scheme v3, one signer
 - Signing-certificate SHA-256:
@@ -25,8 +25,8 @@ same deterministic binary hash shown below.
 
 ```text
 a57dea4919156d2eca018957dfb384c55f5ae933b63a338889f9563d24d1e347  rf-field-notebook-1.0.0-rc1.apk
-da1ae50642a8ed724edf4aa6bb813482328ac4bb6765e8af96fb785834e3729a  rf-field-notebook-1.0.0-rc1-source.zip
-e380a041e9ce8ae65822943f9fd057fc5b4638cb8cfbe1acdeae059ca74aad53  SOURCE_REVISION
+ecf32c07ffb81b37dd696ea3088684c97647f3c4f1f52fa42a51a1557155dcc8  rf-field-notebook-1.0.0-rc1-source.zip
+32eec4c9f7a2623cc9e617f45f04f84a55b655e9d9e3d850c391f5f93a06fd12  SOURCE_REVISION
 3415f390df8d841f275c14f4b3b5ca5a4fca893d36ba1d845538e4caa54c2f30  libusb-1.0.29-source.zip
 33b90bcc62c5798f576af64139c23553eb74fd65aee60a467c63152b1982b976  hackrf-2026.01.3-source.zip
 db3cc41e2c79f394a1dddd890c55c263426175029a898d5167820498ddebf152  maplibre-android-13.6.1-LICENSE.md
@@ -46,7 +46,7 @@ From the repository root:
   -OutputDirectory '.state/releases/1.0.0-rc1' `
   -Keystore '<private-p12-path>' `
   -StorePasswordFile '<private-password-file>' `
-  -SourceRevision 4711cdbdecc51c4d2d118501535da72d036ad444
+  -SourceRevision f2f4fcf61790ad23131c976ea2f3b893b4a5d31e
 ```
 
 The command performs a clean `lint test assembleDebug assembleRelease`, the
