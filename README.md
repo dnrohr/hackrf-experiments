@@ -44,6 +44,14 @@ Pop-Location
 Physical-device runs are tracked in `docs/evidence/M0/benchmark-report.md` and
 must not be replaced with emulator results.
 
+## RF Field Notebook operator documentation
+
+Use the [complete user manual](docs/operator/user-manual.md) for installation,
+safe hardware setup, surveys, discovery review, relative-strength maps, focused
+IQ capture, privacy-aware export, validated reimport, recovery, and local-data
+cleanup. The [operator documentation index](docs/operator/README.md) also links
+short field checklists for each workflow.
+
 ## First connection
 
 1. Attach an antenna suitable for the frequency you want to receive.

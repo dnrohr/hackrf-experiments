@@ -4,6 +4,9 @@ RF Field Notebook is a receive-only, local-first Android field survey tool. It
 does not identify a transmitter location, calibrate field strength, decode
 payloads, upload data, or provide authority to monitor a signal.
 
+For installation, complete workflows, recovery procedures, and interpretation
+guidance, see the [complete user manual](user-manual.md).
+
 1. Verify the APK SHA-256 and signing-certificate SHA-256 against
    `docs/evidence/M5/release-checksums.md`, then install the private release.
 2. Fit a suitable passive antenna before connecting the HackRF. Use a powered
